@@ -89,10 +89,6 @@ void APulseNetMgrActor::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Ou
 
 void APulseNetMgrActor::OnRep_ReplicatedValues()
 {
-	if (!_bIsInitialized)
-	{
-		_bIsInitialized = true;
-	}
 }
 
 void APulseNetMgrActor::PostMulticastRPC(FReplicatedEntry Value) const

@@ -143,10 +143,7 @@ public:
 	virtual void BeginPlay() override;
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
-private:
-
-	bool _bIsInitialized = false;
-	
+private:	
 	UPROPERTY(ReplicatedUsing=OnRep_ReplicatedValues)
 	FReplicatedArray _replicatedValues;
 
