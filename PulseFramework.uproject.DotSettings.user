@@ -1,0 +1,15 @@
+﻿<wpf:ResourceDictionary xml:space="preserve" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:s="clr-namespace:System;assembly=mscorlib" xmlns:ss="urn:shemas-jetbrains-com:settings-storage-xaml" xmlns:wpf="http://schemas.microsoft.com/winfx/2006/xaml/presentation">
+	<s:String x:Key="/Default/CodeInspection/ExcludedFiles/FilesAndFoldersToSkip2/=7020124F_002D9FFC_002D4AC3_002D8F3D_002DAAB8E0240759_002Ff_003AGijovuv_002Easm_002Fl_003AC_0021_003FUsers_003FYvesEboo_003FAppData_003FLocal_003FTemp_003FSandboxFiles_003FQunigol_003FGijovuv_002Easm/@EntryIndexedValue">ForceIncluded</s:String>
+	<s:String x:Key="/Default/CodeInspection/ExcludedFiles/FilesAndFoldersToSkip2/=7020124F_002D9FFC_002D4AC3_002D8F3D_002DAAB8E0240759_002Ff_003AJoteson_002Easm_002Fl_003AC_0021_003FUsers_003FYvesEboo_003FAppData_003FLocal_003FTemp_003FSandboxFiles_003FMedolyf_003FJoteson_002Easm/@EntryIndexedValue">ForceIncluded</s:String>
+	<s:String x:Key="/Default/CodeInspection/ExcludedFiles/FilesAndFoldersToSkip2/=7020124F_002D9FFC_002D4AC3_002D8F3D_002DAAB8E0240759_002Ff_003ANebocow_002Easm_002Fl_003AC_0021_003FUsers_003FYvesEboo_003FAppData_003FLocal_003FTemp_003FSandboxFiles_003FSinuhur_003FNebocow_002Easm/@EntryIndexedValue">ForceIncluded</s:String>
+	<s:String x:Key="/Default/CodeInspection/ExcludedFiles/FilesAndFoldersToSkip2/=7020124F_002D9FFC_002D4AC3_002D8F3D_002DAAB8E0240759_002Ff_003APoxajap_002Easm_002Fl_003AC_0021_003FUsers_003FYvesEboo_003FAppData_003FLocal_003FTemp_003FSandboxFiles_003FVahorot_003FPoxajap_002Easm/@EntryIndexedValue">ForceIncluded</s:String>
+	<s:String x:Key="/Default/CodeInspection/ExcludedFiles/FilesAndFoldersToSkip2/=7020124F_002D9FFC_002D4AC3_002D8F3D_002DAAB8E0240759_002Ff_003ASabycop_002Easm_002Fl_003AC_0021_003FUsers_003FYvesEboo_003FAppData_003FLocal_003FTemp_003FSandboxFiles_003FHohesas_003FSabycop_002Easm/@EntryIndexedValue">ForceIncluded</s:String>
+	<s:String x:Key="/Default/CodeInspection/ExcludedFiles/FilesAndFoldersToSkip2/=7020124F_002D9FFC_002D4AC3_002D8F3D_002DAAB8E0240759_002Ff_003ATiwimiz_002Easm_002Fl_003AC_0021_003FUsers_003FYvesEboo_003FAppData_003FLocal_003FTemp_003FSandboxFiles_003FZyworij_003FTiwimiz_002Easm/@EntryIndexedValue">ForceIncluded</s:String>
+	<s:String x:Key="/Default/CodeInspection/ExcludedFiles/FilesAndFoldersToSkip2/=7020124F_002D9FFC_002D4AC3_002D8F3D_002DAAB8E0240759_002Ff_003AZobanir_002Easm_002Fl_003AC_0021_003FUsers_003FYvesEboo_003FAppData_003FLocal_003FTemp_003FSandboxFiles_003FWeceboq_003FZobanir_002Easm/@EntryIndexedValue">ForceIncluded</s:String>
+	
+	<s:String x:Key="/Default/Environment/UnitTesting/UnitTestSessionStore/Sessions/=86d5c5c0_002D7b5a_002D465e_002D92ea_002Dc9a3c2390cd3/@EntryIndexedValue">&lt;SessionState ContinuousTestingMode="0" IsActive="True" Name="SerializationTest" xmlns="urn:schemas-jetbrains-com:jetbrains-ut-session"&gt;&#xD;
+  &lt;TestAncestor&gt;&#xD;
+    &lt;TestId&gt;UnrealTest::FBAF4034-6D64-F319-4BDC-CD3DB04069C3::::PulseTest.Core.SerializationTest&lt;/TestId&gt;&#xD;
+  &lt;/TestAncestor&gt;&#xD;
+&lt;/SessionState&gt;</s:String>
+	</wpf:ResourceDictionary>

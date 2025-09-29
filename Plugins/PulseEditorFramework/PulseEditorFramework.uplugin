@@ -1,0 +1,35 @@
+{
+	"FileVersion": 3,
+	"Version": 1,
+	"VersionName": "1.0",
+	"FriendlyName": "PulseEditorFramework",
+	"Description": "Editor Only tools to manage Pulse Game Framework",
+	"Category": "Editor Plugin",
+	"CreatedBy": "TyniBoat",
+	"CreatedByURL": "",
+	"DocsURL": "",
+	"MarketplaceURL": "",
+	"SupportURL": "",
+	"CanContainContent": false,
+	"IsBetaVersion": false,
+	"IsExperimentalVersion": false,
+	"Installed": false,
+	"Modules": [
+		{
+			"Name": "PulseEditorFramework",
+			"Type": "Editor",
+			"LoadingPhase": "Default"
+		}
+	],
+	"Sealed": true,
+	"Plugins": [
+		{
+			"Name": "PulseGameFramework",
+			"Enabled": true
+		},
+		{
+			"Name": "AssetManagerEditor",
+			"Enabled": true
+		}
+	]
+}
