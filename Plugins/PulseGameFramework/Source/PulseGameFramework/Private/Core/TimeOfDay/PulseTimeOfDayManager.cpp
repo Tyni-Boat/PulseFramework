@@ -3,54 +3,50 @@
 
 #include "Core/TimeOfDaySubModule/PulseTimeOfDayManager.h"
 #include "Core/PulseCoreModule.h"
-#include "Kismet/KismetSystemLibrary.h"
 
-
-void UPulseTimeOfDayManager::OnSaveTime_Internal(const FString& SlotName, const int32 UserIndex, USaveMetaWrapper* SaveMetaDataWrapper, bool bAutoSave)
-{
-	auto coreModule = Cast<UPulseCoreModule>(_OwningModule);
-	if (!coreModule)
-		return;
-	auto saveTime = NewObject<USaveTimeManagerData>(this);
-	saveTime->SavedTime = GetGameTime();
-	coreModule->GetSaveManager()->WriteAsSavedValue(saveTime, UserIndex);
-}
-
-void UPulseTimeOfDayManager::OnLoadGameTime_Internal(ELoadSaveResponse Response, int32 UserIndex, UPulseSaveData* LoadedSaveData)
-{
-	if (Response != ELoadSaveResponse::Success)
-		return;
-	if (UserIndex != _loadGameTimeFromUserIndex)
-		return;
-	if (LoadedSaveData == nullptr)
-		return;
-	auto coreModule = Cast<UPulseCoreModule>(_OwningModule);
-	if (!coreModule)
-		return;
-	UObject* outObj = nullptr;
-	if (!coreModule->GetSaveManager()->ReadSavedValue(USaveTimeManagerData::StaticClass(), outObj, UserIndex))
-		return;
-	if (auto saveTime = Cast<USaveTimeManagerData>(outObj))
-	{
-		SetGameTime(saveTime->SavedTime);
-	}
-}
 
 void UPulseTimeOfDayManager::OnNetInit_Implementation()
 {
 	TArray<FReplicatedEntry> outNetDatas;
-	UKismetSystemLibrary::PrintString(this, "Net Init");
-	if (IIPulseNetObject::Execute_TryGetNetRepValue(this, _replicationTag, outNetDatas, false))
+	if (IIPulseNetObject::Execute_TryGetNetRepValues(this, _TimeReplicationTag, outNetDatas))
+		SetGameTime(FDateTime::FromUnixTimestampDecimal(outNetDatas[0].DoubleValue), outNetDatas[0].Float31Value.X);
+	if (IIPulseNetObject::Execute_TryGetNetRepValues(this, _TimeSpeedReplicationTag, outNetDatas))
+		SetAutoTickGameTimeSpeed(outNetDatas[0].Float31Value.X);
+}
+
+void UPulseTimeOfDayManager::OnNetValueReplicated_Implementation(const FName Tag, FReplicatedEntry Value, EReplicationEntryOperationType OpType)
+{
+	if (Tag == _TimeReplicationTag)
+		SetGameTime(FDateTime::FromUnixTimestampDecimal(Value.DoubleValue), Value.Float31Value.X);
+	if (Tag == _TimeSpeedReplicationTag)
+		SetAutoTickGameTimeSpeed(Value.Float31Value.X);
+}
+
+UClass* UPulseTimeOfDayManager::GetSaveClassType_Implementation()
+{
+	return USaveTimeManagerData::StaticClass();
+}
+
+void UPulseTimeOfDayManager::OnLoadedObject_Implementation(UObject* LoadedObject)
+{
+	if (!_bCanSave)
+		return;
+	if (auto saveTime = Cast<USaveTimeManagerData>(LoadedObject))
 	{
-		SetGameTime(FDateTime::FromUnixTimestampDecimal(outNetDatas[0].DoubleValue), outNetDatas[0].Float31Value.X, false);
+		SetGameTime(saveTime->SavedTime);
+		if (saveTime->AutoTickSpeed > 0)
+			SetAutoTickGameTimeSpeed(saveTime->AutoTickSpeed);
 	}
 }
 
-void UPulseTimeOfDayManager::OnNetValueReplicated_Implementation(const FGameplayTag Tag, FReplicatedEntry Value, EReplicationEntryOperationType OpType)
+UObject* UPulseTimeOfDayManager::OnSaveObject_Implementation(const FString& SlotName, const int32 UserIndex, USaveMetaWrapper* SaveMetaDataWrapper, bool bAutoSave)
 {
-	if (Tag != _replicationTag)
-		return;
-	SetGameTime(FDateTime::FromUnixTimestampDecimal(Value.DoubleValue), Value.Float31Value.X);
+	if (!_bCanSave)
+		return nullptr;
+	auto saveTime = NewObject<USaveTimeManagerData>(this);
+	saveTime->SavedTime = GetGameTime();
+	saveTime->AutoTickSpeed = _tickSpeed;
+	return saveTime;
 }
 
 FName UPulseTimeOfDayManager::GetSubModuleName() const
@@ -74,37 +70,19 @@ void UPulseTimeOfDayManager::InitializeSubModule(UPulseModuleBase* OwningModule)
 	auto coreModule = Cast<UPulseCoreModule>(OwningModule);
 	if (!coreModule)
 		return;
-	bool bindSaveMgr = false;
 	if (auto settings = coreModule->GetProjectConfig())
 	{
-		_replicationTag = settings->DateTimeReplicationKey;
+		_bCanReplicate = settings->bReplicateDateTime;
 		SetGameTime(settings->DefaultGameDate);
 		_bAutoTickTime = settings->bTickGameTime;
-		_loadGameTimeFromUserIndex = settings->LoadGameTimeFromSaveUserIndex;
-		bindSaveMgr = settings->bSaveAndLoadGameTimeAutomatically;
+		_bCanSave = settings->bSaveAndLoadGameTime;
 		if (settings->bUseSystemTimeNowOnInitialize)
 			SetGameTime(FDateTime::Now());
-	}
-	if (bindSaveMgr)
-	{
-		if (auto saveMgr = coreModule->GetSaveManager())
-		{
-			saveMgr->OnGameAboutToSave.AddDynamic(this, &UPulseTimeOfDayManager::OnSaveTime_Internal);
-			saveMgr->OnGameLoaded.AddDynamic(this, &UPulseTimeOfDayManager::OnLoadGameTime_Internal);
-		}
 	}
 }
 
 void UPulseTimeOfDayManager::DeinitializeSubModule()
 {
-	if (auto coreModule = Cast<UPulseCoreModule>(_OwningModule))
-	{
-		if (auto saveMgr = coreModule->GetSaveManager())
-		{
-			saveMgr->OnGameAboutToSave.RemoveDynamic(this, &UPulseTimeOfDayManager::OnSaveTime_Internal);
-			saveMgr->OnGameLoaded.RemoveDynamic(this, &UPulseTimeOfDayManager::OnLoadGameTime_Internal);
-		}
-	}
 	Super::DeinitializeSubModule();
 }
 
@@ -118,8 +96,8 @@ void UPulseTimeOfDayManager::TickSubModule(float DeltaTime, float CurrentTimeDil
 		auto c_ticks = _currentTime.ToUnixTimestampDecimal();
 		auto n_ticks = _newSetTime.ToUnixTimestampDecimal();
 		c_ticks = _changeTimeLerpSpeed > 0
-			          ? FMath::FInterpConstantTo(c_ticks, n_ticks, DeltaTime, _changeTimeLerpSpeed)
-			          : n_ticks;
+			? FMath::FInterpConstantTo(c_ticks, n_ticks, DeltaTime, _changeTimeLerpSpeed)
+			: n_ticks;
 		_currentTime = _currentTime.FromUnixTimestampDecimal(c_ticks);
 		if (FMath::IsNearlyEqual(c_ticks, n_ticks))
 			_interpolateTime = false;
@@ -189,17 +167,18 @@ FTimespan UPulseTimeOfDayManager::GetTimeRemainingToNextCalendarMonth_Internal(F
 	return result;
 }
 
-void UPulseTimeOfDayManager::SetGameTime(FDateTime Time, float LerpSpeed, bool TryReplicate)
+void UPulseTimeOfDayManager::SetGameTime(FDateTime Time, float LerpSpeed)
 {
-	if (Time == _newSetTime) return; // No change in time, do nothing
+	if (Time == _newSetTime && _interpolateTime)
+		return; // No change in time, do nothing
 	_newSetTime = Time;
 	_changeTimeLerpSpeed = LerpSpeed * 10000;
 	_interpolateTime = true;
 	// Replicate if authority
-	if (TryReplicate && _replicationTag.IsValid())
+	if (_bCanReplicate)
 	{
 		FReplicatedEntry entry = FReplicatedEntry().WithDouble(Time.ToUnixTimestampDecimal()).WithFloat(LerpSpeed);
-		IIPulseNetObject::Execute_ReplicateValue(this, _replicationTag, entry);
+		IIPulseNetObject::Execute_ReplicateValue(this, _TimeReplicationTag, entry);
 	}
 }
 
@@ -211,6 +190,12 @@ void UPulseTimeOfDayManager::SetAutoTickGameTime(bool AutoTick)
 void UPulseTimeOfDayManager::SetAutoTickGameTimeSpeed(float TickSpeed)
 {
 	_tickSpeed = TickSpeed;
+	// Replicate if authority
+	if (_bCanReplicate)
+	{
+		FReplicatedEntry entry = FReplicatedEntry().WithFloat(TickSpeed);
+		IIPulseNetObject::Execute_ReplicateValue(this, _TimeSpeedReplicationTag, entry);
+	}
 }
 
 void UPulseTimeOfDayManager::SetTriggerEventOnGameTimeTick(bool EnableTrigger)

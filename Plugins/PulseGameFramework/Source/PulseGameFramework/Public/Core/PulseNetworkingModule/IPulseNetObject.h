@@ -37,26 +37,31 @@ public:
 
 	// No Need to implement this function
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category="PulseNetwork|Replication", meta=(AdvancedDisplay = 2))
-	bool ReplicateValue(const FGameplayTag Tag, FReplicatedEntry Value);
-	bool ReplicateValue_Implementation(const FGameplayTag Tag, FReplicatedEntry Value);
+	bool ReplicateValue(const FName Tag, FReplicatedEntry Value);
+	bool ReplicateValue_Implementation(const FName Tag, FReplicatedEntry Value);
 
 	// No Need to implement this function
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category="PulseNetwork|Replication", meta=(AdvancedDisplay = 2))
-	bool BroadcastNetEvent(const FGameplayTag Tag, FReplicatedEntry Value, bool Reliable = false);
-	bool BroadcastNetEvent_Implementation(const FGameplayTag Tag, FReplicatedEntry Value, bool Reliable = false);
+	bool RemoveReplicationTag(const FName Tag, UObject* SpecificObject = nullptr);
+	bool RemoveReplicationTag_Implementation(const FName Tag, UObject* SpecificObject = nullptr);
 
 	// No Need to implement this function
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category="PulseNetwork|Replication", meta=(AdvancedDisplay = 2))
-	bool TryGetNetRepValue(const FGameplayTag Tag, TArray<FReplicatedEntry>& OutValues, bool IncludeChildren = false);
-	bool TryGetNetRepValue_Implementation(const FGameplayTag Tag, TArray<FReplicatedEntry>& OutValues, bool IncludeChildren = false);
+	bool BroadcastNetEvent(const FName Tag, FReplicatedEntry Value, bool Reliable = false);
+	bool BroadcastNetEvent_Implementation(const FName Tag, FReplicatedEntry Value, bool Reliable = false);
+
+	// No Need to implement this function
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category="PulseNetwork|Replication", meta=(AdvancedDisplay = 2))
+	bool TryGetNetRepValues(const FName Tag, TArray<FReplicatedEntry>& OutValues);
+	bool TryGetNetRepValues_Implementation(const FName Tag, TArray<FReplicatedEntry>& OutValues);
 
 	
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "PulseNetwork|Replication")
 	void OnNetInit();
 	
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "PulseNetwork|Replication")
-	void OnNetValueReplicated(const FGameplayTag Tag, FReplicatedEntry Value, EReplicationEntryOperationType OpType);
+	void OnNetValueReplicated(const FName Tag, FReplicatedEntry Value, EReplicationEntryOperationType OpType);
 	
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "PulseNetwork|Replication")
-	void OnNetReceiveBroadcastEvent(const FGameplayTag Tag, FReplicatedEntry Value);
+	void OnNetReceiveBroadcastEvent(const FName Tag, FReplicatedEntry Value);
 };

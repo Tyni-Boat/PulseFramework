@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "Core/PulseSubModuleBase.h"
 #include "Core/PulseNetworkingModule/IPulseNetObject.h"
+#include "Core/SaveGameSubModule/IPulseSavableObject.h"
 #include "Core/SaveGameSubModule/PulseSaveManager.h"
 #include "PulseTimeOfDayManager.generated.h"
 
@@ -22,6 +23,8 @@ class USaveTimeManagerData : public UObject
 public:
 	UPROPERTY(visibleAnywhere, BlueprintReadOnly, Category=Time)
 	FDateTime SavedTime;
+	UPROPERTY(visibleAnywhere, BlueprintReadOnly, Category=Time)
+	float AutoTickSpeed = 1;
 };
 
 UCLASS()
@@ -43,7 +46,7 @@ public:
  * Pulse Sub-Module for managing the Time of Day
  */
 UCLASS(BlueprintType)
-class PULSEGAMEFRAMEWORK_API UPulseTimeOfDayManager : public UPulseSubModuleBase, public IIPulseNetObject
+class PULSEGAMEFRAMEWORK_API UPulseTimeOfDayManager : public UPulseSubModuleBase, public IIPulseNetObject, public IIPulseSavableObject
 {
 	GENERATED_BODY()
 
@@ -55,19 +58,19 @@ private:
 	bool _bAutoTickTime = true;
 	bool _bTriggerEventOnTick = true;
 	bool _interpolateTime = false;
-	FGameplayTag _replicationTag = FGameplayTag::EmptyTag;
-	int32 _loadGameTimeFromUserIndex = 0;
-
-protected:
-	UFUNCTION()
-	void OnSaveTime_Internal(const FString& SlotName, const int32 UserIndex, USaveMetaWrapper* SaveMetaDataWrapper, bool bAutoSave);
-	UFUNCTION()
-	void OnLoadGameTime_Internal(ELoadSaveResponse Response, int32 UserIndex, UPulseSaveData* LoadedSaveData);
+	bool _bCanReplicate = false;
+	bool _bCanSave = false;
+	FName _TimeReplicationTag = "Pulse.Core.Time.DayTime";
+	FName _TimeSpeedReplicationTag = "Pulse.Core.Time.Speed";
 	
 public:
 	
 	virtual void OnNetInit_Implementation() override;
-	virtual void OnNetValueReplicated_Implementation(const FGameplayTag Tag, FReplicatedEntry Value, EReplicationEntryOperationType OpType) override;
+	virtual void OnNetValueReplicated_Implementation(const FName Tag, FReplicatedEntry Value, EReplicationEntryOperationType OpType) override;
+
+	virtual UClass* GetSaveClassType_Implementation() override;
+	virtual void OnLoadedObject_Implementation(UObject* LoadedObject) override;
+	virtual UObject* OnSaveObject_Implementation(const FString& SlotName, const int32 UserIndex, USaveMetaWrapper* SaveMetaDataWrapper, bool bAutoSave) override;
 	
 	virtual FName GetSubModuleName() const override;
 	virtual bool WantToTick() const override;
@@ -123,7 +126,7 @@ public:
 	FTimespan GetTimeRemainingToNextCalendarMonth_Internal(FDateTime Date, int32 Month, bool bAtsameDay = false, bool bAtsameHour = false) const;
 
 	UFUNCTION(BlueprintCallable, Category = "TimeOfDay", meta = (AdvancedDisplay = 1))
-	void SetGameTime(FDateTime Time, float LerpSpeed = 0, bool TryReplicate = true);
+	void SetGameTime(FDateTime Time, float LerpSpeed = 0);
 
 	UFUNCTION(BlueprintCallable, Category = "TimeOfDay")
 	void SetAutoTickGameTime(bool AutoTick);
@@ -133,4 +136,5 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "TimeOfDay")
 	void SetTriggerEventOnGameTimeTick(bool EnableTrigger);
+	
 };

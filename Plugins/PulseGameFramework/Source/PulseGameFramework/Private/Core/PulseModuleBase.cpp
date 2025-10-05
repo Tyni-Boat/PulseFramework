@@ -4,6 +4,7 @@
 #include "Core/PulseModuleBase.h"
 
 #include "Core/PulseNetworkingModule/IPulseNetObject.h"
+#include "Core/SaveGameSubModule/IPulseSavableObject.h"
 #include "ProfilingDebugging/TagTrace.h"
 #include "Kismet/GameplayStatics.h"
 
@@ -87,7 +88,11 @@ void UPulseModuleBase::Initialize(FSubsystemCollectionBase& Collection)
 		// Bind Net comp
 		if (auto asNetObj = Cast<IIPulseNetObject>(moduleInstance))
 			asNetObj->BindNetworkManager();
+		// Initialization
 		moduleInstance->InitializeSubModule(this);
+		// Bind Save comp
+		if (auto SavableObject = Cast<IIPulseSavableObject>(moduleInstance))
+			SavableObject->BindSaveManager();
 	}
 }
 
@@ -101,6 +106,8 @@ void UPulseModuleBase::Deinitialize()
 			continue;
 		if (auto asNetObj = Cast<IIPulseNetObject>(module.Value))
 			asNetObj->UnbindNetworkManager();
+		if (auto SavableObject = Cast<IIPulseSavableObject>(module.Value))
+			SavableObject->UnbindSaveManager();
 		module.Value->DeinitializeSubModule();
 	}
 	_SubModuleMap.Empty();

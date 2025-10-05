@@ -33,13 +33,10 @@ public:
 
 	// Use a non-null and non-empty key to replicate game time over network.
 	UPROPERTY(EditAnywhere, Config, Category = "Time of Day")
-	FGameplayTag DateTimeReplicationKey = FGameplayTag::EmptyTag;
+	bool bReplicateDateTime = false;
 	
 	UPROPERTY(EditAnywhere, Config, Category = "Time of Day")
-	bool bSaveAndLoadGameTimeAutomatically = false;
-	
-	UPROPERTY(EditAnywhere, Config, Category = "Time of Day")
-	int32 LoadGameTimeFromSaveUserIndex = 0;
+	bool bSaveAndLoadGameTime = false;
 
 	UPROPERTY(EditAnywhere, Config, Category = "Time of Day")
 	bool bTickGameTime = true;
@@ -90,7 +87,10 @@ public:
 #pragma region Buffing System
 
 	UPROPERTY(EditAnywhere, Config, Category = "Operation Modifiers (Buff)")
-	bool bSaveAndLoadActiveBuffsAutomatically = true;
+	bool bSaveAndLoadActiveBuffs = true;
+
+	UPROPERTY(EditAnywhere, Config, Category = "Operation Modifiers (Buff)")
+	bool bReplicateActiveBuffs = false;
 
 	UPROPERTY(EditAnywhere, Config, Category = "Operation Modifiers (Buff)")
 	int32 BuffHandlePoolingLimit = 1000;

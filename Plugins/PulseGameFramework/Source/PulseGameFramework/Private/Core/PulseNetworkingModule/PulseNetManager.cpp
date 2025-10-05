@@ -74,13 +74,13 @@ void UPulseNetManager::HandleNetHistory()
 	while (_pendingReplicatedValues.Dequeue(entry))
 	{
 		if (entry.FlagValue <= -1)
-			RemoveReplicatedValue_Internal(entry.GTag(), true);
+			RemoveReplicatedValue_Internal(entry.Tag, nullptr, true);
 		else
-			ReplicateValue_Internal(entry.GTag(), entry, true);
+			ReplicateValue_Internal(entry.Tag, entry, true);
 	}
 	while (_pendingReliableRPCs.Dequeue(entry))
 	{
-		MakeRPCall_Internal(entry.GTag(), entry, true);
+		MakeRPCall_Internal(entry.Tag, entry, true);
 	}
 }
 
@@ -175,36 +175,21 @@ bool UPulseNetManager::GetNetHasAuthority(const UObject* WorldContextObject)
 	return false;
 }
 
-bool UPulseNetManager::TryGetReplicatedValue(const UObject* WorldContextObject, FGameplayTag Tag, FReplicatedEntry& OutValue)
+bool UPulseNetManager::TryGetReplicatedValues(const UObject* WorldContextObject, FName Tag, TArray<FReplicatedEntry>& OutValues, UObject* ForObj)
 {
 	if (auto mgr = Get(WorldContextObject))
 	{
 		if (auto netActor = mgr->_netActor)
 		{
-			if (netActor->GetReplicatedValue(Tag, OutValue))
+			if (netActor->GetReplicatedValues(Tag, OutValues, ForObj))
 				return true;
 		}
 	}
 	return false;
 }
 
-bool UPulseNetManager::TryGetReplicatedValues(const UObject* WorldContextObject, FGameplayTag Tag, TArray<FReplicatedEntry>& OutValues)
+bool UPulseNetManager::ReplicateValue(const UObject* WorldContextObject, FName Tag, FReplicatedEntry Value)
 {
-	if (auto mgr = Get(WorldContextObject))
-	{
-		if (auto netActor = mgr->_netActor)
-		{
-			if (netActor->GetReplicatedValues(Tag, OutValues))
-				return true;
-		}
-	}
-	return false;
-}
-
-bool UPulseNetManager::ReplicateValue(const UObject* WorldContextObject, FGameplayTag Tag, FReplicatedEntry Value)
-{
-	if (!Tag.IsValid())
-		return false;
 	if (auto mgr = Get(WorldContextObject))
 	{
 		return mgr->ReplicateValue_Internal(Tag, Value);
@@ -212,7 +197,7 @@ bool UPulseNetManager::ReplicateValue(const UObject* WorldContextObject, FGamepl
 	return false;
 }
 
-bool UPulseNetManager::ReplicateValue_Internal(FGameplayTag Tag, FReplicatedEntry Value, bool fromHistory)
+bool UPulseNetManager::ReplicateValue_Internal(FName Tag, FReplicatedEntry Value, bool fromHistory)
 {
 	if (!(static_cast<int32>(GetNetAuth()) & static_cast<int32>(ENetworkAuthorizationState::GameplayValues)))
 		return false;
@@ -220,7 +205,7 @@ bool UPulseNetManager::ReplicateValue_Internal(FGameplayTag Tag, FReplicatedEntr
 	{
 		if (!HasAuthority())
 			return false;
-		Value.Tag = Tag.GetTagName();
+		Value.Tag = Tag;
 		if (!fromHistory && !_pendingReplicatedValues.IsEmpty())
 		{
 			_pendingReplicatedValues.Enqueue(Value);
@@ -231,23 +216,23 @@ bool UPulseNetManager::ReplicateValue_Internal(FGameplayTag Tag, FReplicatedEntr
 	}
 	else if (!fromHistory)
 	{
-		Value.Tag = Tag.GetTagName();
+		Value.Tag = Tag;
 		_pendingReplicatedValues.Enqueue(Value);
 		return true;
 	}
 	return false;
 }
 
-bool UPulseNetManager::RemoveReplicatedValue(const UObject* WorldContextObject, FGameplayTag Tag)
+bool UPulseNetManager::RemoveReplicatedValue(const UObject* WorldContextObject, FName Tag, UObject* ForObj)
 {
 	if (auto mgr = Get(WorldContextObject))
 	{
-		return mgr->RemoveReplicatedValue_Internal(Tag);
+		return mgr->RemoveReplicatedValue_Internal(Tag, ForObj, false);
 	}
 	return false;
 }
 
-bool UPulseNetManager::RemoveReplicatedValue_Internal(FGameplayTag Tag, bool fromHistory)
+bool UPulseNetManager::RemoveReplicatedValue_Internal(FName Tag, UObject* ForObj, bool fromHistory)
 {
 	if (!(static_cast<int32>(GetNetAuth()) & static_cast<int32>(ENetworkAuthorizationState::GameplayValues)))
 		return false;
@@ -258,18 +243,20 @@ bool UPulseNetManager::RemoveReplicatedValue_Internal(FGameplayTag Tag, bool fro
 		if (!fromHistory && !_pendingReplicatedValues.IsEmpty())
 		{
 			FReplicatedEntry Entry;
-			Entry.Tag = Tag.GetTagName();
+			Entry.Tag = Tag;
+			Entry.WeakObjectPtr = ForObj;
 			Entry.FlagValue = -1;
 			_pendingReplicatedValues.Enqueue(Entry);
 			return true;
 		}
-		netActor->RemoveReplicatedItem(Tag.GetTagName());
+		netActor->RemoveReplicatedItem(Tag, true, ForObj);
 		return true;
 	}
 	else if (!fromHistory)
 	{
 		FReplicatedEntry Entry;
-		Entry.Tag = Tag.GetTagName();
+		Entry.Tag = Tag;
+		Entry.WeakObjectPtr = ForObj;
 		Entry.FlagValue = -1;
 		_pendingReplicatedValues.Enqueue(Entry);
 		return true;
@@ -277,7 +264,7 @@ bool UPulseNetManager::RemoveReplicatedValue_Internal(FGameplayTag Tag, bool fro
 	return false;
 }
 
-bool UPulseNetManager::MakeRPCall(const UObject* WorldContextObject, FGameplayTag Tag, FReplicatedEntry Value, bool Reliable)
+bool UPulseNetManager::MakeRPCall(const UObject* WorldContextObject, FName Tag, FReplicatedEntry Value, bool Reliable)
 {
 	if (auto mgr = Get(WorldContextObject))
 	{
@@ -286,7 +273,7 @@ bool UPulseNetManager::MakeRPCall(const UObject* WorldContextObject, FGameplayTa
 	return false;
 }
 
-bool UPulseNetManager::MakeRPCall_Internal(FGameplayTag Tag, FReplicatedEntry Value, bool Reliable, bool fromHistory)
+bool UPulseNetManager::MakeRPCall_Internal(FName Tag, FReplicatedEntry Value, bool Reliable, bool fromHistory)
 {
 	if (!(static_cast<int32>(GetNetAuth()) & static_cast<int32>(ENetworkAuthorizationState::GameplayValues)))
 		return false;
@@ -294,7 +281,7 @@ bool UPulseNetManager::MakeRPCall_Internal(FGameplayTag Tag, FReplicatedEntry Va
 	{
 		if (!HasAuthority())
 			return false;
-		Value.Tag = Tag.GetTagName();
+		Value.Tag = Tag;
 		if (Reliable)
 		{
 			if (!fromHistory && !_pendingReliableRPCs.IsEmpty())
@@ -310,7 +297,7 @@ bool UPulseNetManager::MakeRPCall_Internal(FGameplayTag Tag, FReplicatedEntry Va
 	}
 	else if (Reliable && !fromHistory)
 	{
-		Value.Tag = Tag.GetTagName();
+		Value.Tag = Tag;
 		_pendingReliableRPCs.Enqueue(Value);
 		return true;
 	}

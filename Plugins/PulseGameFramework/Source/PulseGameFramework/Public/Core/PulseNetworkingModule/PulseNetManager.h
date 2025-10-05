@@ -95,20 +95,17 @@ public:
 	static bool GetNetHasAuthority(const UObject* WorldContextObject);
 
 	UFUNCTION(BlueprintCallable, Category = "PulseNetwork", meta = (WorldContext = "WorldContextObject", AdvancedDisplay = 2))
-	static bool TryGetReplicatedValue(const UObject* WorldContextObject, FGameplayTag Tag, FReplicatedEntry& OutValue);
+	static bool TryGetReplicatedValues(const UObject* WorldContextObject, FName Tag, TArray<FReplicatedEntry>& OutValues, UObject* ForObj = nullptr);
 
 	UFUNCTION(BlueprintCallable, Category = "PulseNetwork", meta = (WorldContext = "WorldContextObject", AdvancedDisplay = 2))
-	static bool TryGetReplicatedValues(const UObject* WorldContextObject, FGameplayTag Tag, TArray<FReplicatedEntry>& OutValues);
+	static bool ReplicateValue(const UObject* WorldContextObject, FName Tag, FReplicatedEntry Value);
+	bool ReplicateValue_Internal(FName Tag, FReplicatedEntry Value, bool fromHistory = false);
 
 	UFUNCTION(BlueprintCallable, Category = "PulseNetwork", meta = (WorldContext = "WorldContextObject", AdvancedDisplay = 2))
-	static bool ReplicateValue(const UObject* WorldContextObject, FGameplayTag Tag, FReplicatedEntry Value);
-	bool ReplicateValue_Internal(FGameplayTag Tag, FReplicatedEntry Value, bool fromHistory = false);
+	static bool RemoveReplicatedValue(const UObject* WorldContextObject, FName Tag, UObject* ForObj = nullptr);
+	bool RemoveReplicatedValue_Internal(FName Tag, UObject* ForObj = nullptr, bool fromHistory = false);
 
 	UFUNCTION(BlueprintCallable, Category = "PulseNetwork", meta = (WorldContext = "WorldContextObject", AdvancedDisplay = 2))
-	static bool RemoveReplicatedValue(const UObject* WorldContextObject, FGameplayTag Tag);
-	bool RemoveReplicatedValue_Internal(FGameplayTag Tag, bool fromHistory = false);
-
-	UFUNCTION(BlueprintCallable, Category = "PulseNetwork", meta = (WorldContext = "WorldContextObject", AdvancedDisplay = 2))
-	static bool MakeRPCall(const UObject* WorldContextObject,  FGameplayTag Tag, FReplicatedEntry Value, bool Reliable = false);
-	bool MakeRPCall_Internal(FGameplayTag Tag, FReplicatedEntry Value, bool Reliable = false, bool fromHistory = false);
+	static bool MakeRPCall(const UObject* WorldContextObject, FName Tag, FReplicatedEntry Value, bool Reliable = false);
+	bool MakeRPCall_Internal(FName Tag, FReplicatedEntry Value, bool Reliable = false, bool fromHistory = false);
 };

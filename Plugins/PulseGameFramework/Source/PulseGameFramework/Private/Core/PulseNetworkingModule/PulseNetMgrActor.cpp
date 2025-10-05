@@ -15,8 +15,8 @@ void FReplicatedItem::PreReplicatedRemove(const struct FReplicatedArray& Seriali
 	{
 		if (repActor->_manager.Get())
 		{
-			repActor->_manager->OnNetReplication_Raw.Broadcast(Entry.GTag(), Entry, EReplicationEntryOperationType::Remove);
-			repActor->_manager->OnNetReplication.Broadcast(Entry.GTag(), Entry, EReplicationEntryOperationType::Remove);
+			repActor->_manager->OnNetReplication_Raw.Broadcast(Entry.Tag, Entry, EReplicationEntryOperationType::Remove);
+			repActor->_manager->OnNetReplication.Broadcast(Entry.Tag, Entry, EReplicationEntryOperationType::Remove);
 		}
 	}
 }
@@ -29,8 +29,8 @@ void FReplicatedItem::PostReplicatedAdd(const struct FReplicatedArray& Serialize
 	{
 		if (repActor->_manager.Get())
 		{
-			repActor->_manager->OnNetReplication_Raw.Broadcast(Entry.GTag(), Entry, EReplicationEntryOperationType::AddNew);
-			repActor->_manager->OnNetReplication.Broadcast(Entry.GTag(), Entry, EReplicationEntryOperationType::AddNew);
+			repActor->_manager->OnNetReplication_Raw.Broadcast(Entry.Tag, Entry, EReplicationEntryOperationType::AddNew);
+			repActor->_manager->OnNetReplication.Broadcast(Entry.Tag, Entry, EReplicationEntryOperationType::AddNew);
 		}
 	}
 }
@@ -43,8 +43,8 @@ void FReplicatedItem::PostReplicatedChange(const struct FReplicatedArray& Serial
 	{
 		if (repActor->_manager.Get())
 		{
-			repActor->_manager->OnNetReplication_Raw.Broadcast(Entry.GTag(), Entry, EReplicationEntryOperationType::Update);
-			repActor->_manager->OnNetReplication.Broadcast(Entry.GTag(), Entry, EReplicationEntryOperationType::Update);
+			repActor->_manager->OnNetReplication_Raw.Broadcast(Entry.Tag, Entry, EReplicationEntryOperationType::Update);
+			repActor->_manager->OnNetReplication.Broadcast(Entry.Tag, Entry, EReplicationEntryOperationType::Update);
 		}
 	}
 }
@@ -95,8 +95,8 @@ void APulseNetMgrActor::PostMulticastRPC(FReplicatedEntry Value) const
 {
 	if (!_manager.Get())
 		return;
-	_manager->OnNetRPC_Raw.Broadcast(Value.GTag(), Value);
-	_manager->OnNetRPC.Broadcast(Value.GTag(), Value);
+	_manager->OnNetRPC_Raw.Broadcast(Value.Tag, Value);
+	_manager->OnNetRPC.Broadcast(Value.Tag, Value);
 }
 
 void APulseNetMgrActor::ReplicateValue_Implementation(FReplicatedEntry Value)
@@ -105,7 +105,7 @@ void APulseNetMgrActor::ReplicateValue_Implementation(FReplicatedEntry Value)
 		return;
 	int32 indexOf = _replicatedValues.Items.IndexOfByPredicate([Value](const FReplicatedItem& Entry)-> bool
 	{
-		return Entry.Entry.IsValidNetEntry() && Entry.Entry.GTag() == Value.GTag();
+		return Entry.Entry.IsValidNetEntry() && Entry.Entry.Tag == Value.Tag && Entry.Entry.WeakObjectPtr == Value.WeakObjectPtr;
 	});
 	if (_replicatedValues.Items.IsValidIndex(indexOf))
 	{
@@ -129,9 +129,9 @@ void APulseNetMgrActor::ReplicateValue_Implementation(FReplicatedEntry Value)
 	}
 }
 
-void APulseNetMgrActor::RemoveReplicatedItem_Implementation(FName Tag, bool IncludeChildValues)
+void APulseNetMgrActor::RemoveReplicatedItem_Implementation(FName Tag, bool IncludeChildValues, UObject* objPtr)
 {
-	if (!Tag.IsValid())
+	if (Tag.IsNone())
 		return;
 	TArray<int32> indexes;
 	for (int i = 0; i < _replicatedValues.Items.Num(); i++)
@@ -148,6 +148,8 @@ void APulseNetMgrActor::RemoveReplicatedItem_Implementation(FName Tag, bool Incl
 			if (!_replicatedValues.Items[i].Entry.Tag.ToString().Contains(Tag.ToString()))
 				continue;
 		}
+		if(objPtr && _replicatedValues.Items[i].Entry.WeakObjectPtr.Get() != objPtr)
+			continue;
 		indexes.Add(i);
 	}
 	for (int i = indexes.Num() - 1; i >= 0; i--)
@@ -178,25 +180,17 @@ void APulseNetMgrActor::UnreliableMulticastRPC_Implementation(FReplicatedEntry V
 	PostMulticastRPC(Value);
 }
 
-bool APulseNetMgrActor::GetReplicatedValue(FGameplayTag Tag, FReplicatedEntry& Value)
-{
-	if (!Tag.IsValid())
-		return false;
-	int32 indexOf = _replicatedValues.Items.IndexOfByPredicate([Tag](const FReplicatedItem& Entry)-> bool { return Entry.Entry.IsValidNetEntry() && Entry.Entry.GTag() == Tag; });
-	if (indexOf == INDEX_NONE)
-		return false;
-	Value = _replicatedValues.Items[indexOf].Entry;
-	return true;
-}
 
-bool APulseNetMgrActor::GetReplicatedValues(FGameplayTag Tag, TArray<FReplicatedEntry>& Values)
+bool APulseNetMgrActor::GetReplicatedValues(FName Tag, TArray<FReplicatedEntry>& Values, UObject* objPtr)
 {
-	if (!Tag.IsValid())
+	if (Tag.IsNone())
 		return false;
 	Values.Empty();
 	for (int i = 0; i < _replicatedValues.Items.Num(); i++)
 	{
-		if (!_replicatedValues.Items[i].Entry.Tag.ToString().Contains(Tag.GetTagName().ToString()))
+		if (!_replicatedValues.Items[i].Entry.Tag.ToString().Contains(Tag.ToString()))
+			continue;
+		if (objPtr && _replicatedValues.Items[i].Entry.WeakObjectPtr.Get() != objPtr)
 			continue;
 		Values.Add(_replicatedValues.Items[i].Entry);
 	}

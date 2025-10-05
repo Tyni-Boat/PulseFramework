@@ -28,7 +28,14 @@ public:
 	FReplicatedEntry(){}
 	FReplicatedEntry(FName tag): Tag(tag){}
 	FReplicatedEntry WithObject(UObject* objPtr){ this->WeakObjectPtr = objPtr;  return *this;}
-	FReplicatedEntry WithName(FName name){ this->NameValue = name;  return *this;}
+	FReplicatedEntry WithClass(const UClass* classPtr){ this->SoftClassPtr = classPtr;  return *this;}
+	FReplicatedEntry WithName(FName name, int32 ZeroTwoIndex = 0)
+	{
+		if (ZeroTwoIndex == 0) this->NameValue = name;
+		if (ZeroTwoIndex == 1) this->NameValue_1 = name;
+		if (ZeroTwoIndex > 1) this->NameValue_2 = name;
+		return *this;
+	}
 	FReplicatedEntry WithEnumValue(uint8 enumVal){ this->EnumValue = enumVal;  return *this;}
 	FReplicatedEntry WithFlags(int32 flags){ this->FlagValue = flags;  return *this;}
 	FReplicatedEntry WithInteger(int32 intValue){ this->IntegerValue = intValue;  return *this;}
@@ -71,12 +78,14 @@ public:
 		this->Float33Value = transformValue.GetScale3D();
 		return *this;
 	}
-	bool IsValidNetEntry() const { return FGameplayTag::RequestGameplayTag(Tag, false).IsValid(); }
-	FGameplayTag GTag() const { return FGameplayTag::RequestGameplayTag(Tag, false); }
+	bool IsValidNetEntry() const { return !Tag.IsNone(); }
 	
 	UPROPERTY()	FName Tag = "";
 	UPROPERTY()	TWeakObjectPtr<UObject> WeakObjectPtr = nullptr;
+	UPROPERTY()	TSoftClassPtr<UObject> SoftClassPtr = nullptr;
 	UPROPERTY()	FName NameValue = "";
+	UPROPERTY()	FName NameValue_1 = "";
+	UPROPERTY()	FName NameValue_2 = "";
 	UPROPERTY()	uint8 EnumValue = 0;
 	UPROPERTY()	int32 FlagValue = 0;
 	UPROPERTY()	int32 IntegerValue = 0;
@@ -119,13 +128,13 @@ struct TStructOpsTypeTraits<FReplicatedArray> : public TStructOpsTypeTraitsBase2
 	enum { WithNetDeltaSerializer = true };
 };
 
-DECLARE_MULTICAST_DELEGATE_ThreeParams(FOnNetReplication_Raw, FGameplayTag Tag, FReplicatedEntry Value, EReplicationEntryOperationType Operation)
-DECLARE_MULTICAST_DELEGATE_TwoParams(FOnNetRPC_Raw, FGameplayTag Tag, FReplicatedEntry Value)
+DECLARE_MULTICAST_DELEGATE_ThreeParams(FOnNetReplication_Raw, FName Tag, FReplicatedEntry Value, EReplicationEntryOperationType Operation)
+DECLARE_MULTICAST_DELEGATE_TwoParams(FOnNetRPC_Raw, FName Tag, FReplicatedEntry Value)
 DECLARE_MULTICAST_DELEGATE(FOnPulseNetInit_Raw);
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnPulseNetInit);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FOnNetReplication, FGameplayTag, Tag, FReplicatedEntry, Value, EReplicationEntryOperationType, Operation);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnNetRPC, FGameplayTag, Tag, FReplicatedEntry, Value);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FOnNetReplication, FName, Tag, FReplicatedEntry, Value, EReplicationEntryOperationType, Operation);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnNetRPC, FName, Tag, FReplicatedEntry, Value);
 
 class UPulseNetManager;
 
@@ -161,7 +170,7 @@ public:
 	void ReplicateValue(FReplicatedEntry Value);
 	
 	UFUNCTION(Server, Reliable)
-	void RemoveReplicatedItem(FName Tag, bool IncludeChildValues = true);
+	void RemoveReplicatedItem(FName Tag, bool IncludeChildValues = true, UObject* objPtr = nullptr);
 
 	UFUNCTION(Server, Reliable)
 	void ReliableServerRPC(FReplicatedEntry Value);
@@ -174,10 +183,7 @@ public:
 	
 	UFUNCTION(NetMulticast, UnReliable)
 	void UnreliableMulticastRPC(FReplicatedEntry Value);
-
-	// Get only the exact corresponding Tag. Return true if he tag is found. 
-	bool GetReplicatedValue(FGameplayTag Tag, FReplicatedEntry& Value);
 	
 	// Get only the exact corresponding Tag (index 0 if any) including every children tags. return true if at least one tag where found
-	bool GetReplicatedValues(FGameplayTag Tag, TArray<FReplicatedEntry>& Values);
+	bool GetReplicatedValues(FName Tag, TArray<FReplicatedEntry>& Values, UObject* objPtr = nullptr);
 };

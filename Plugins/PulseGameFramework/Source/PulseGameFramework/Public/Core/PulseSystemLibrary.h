@@ -5,14 +5,13 @@
 #include <rapidjson/document.h>
 
 #include "CoreMinimal.h"
-#include "VisualizeTexture.h"
 #include "Kismet/BlueprintFunctionLibrary.h"
 #include "Core/CoreConcepts.h"
 #include "Animation/AnimNotifies/AnimNotify.h"
 #include "Animation/AnimNotifies/AnimNotifyState.h"
-#include "HAL/MallocBinned2.h"
 #include "Kismet/GameplayStatics.h"
-#include "VerseVM/VVMVerseEnum.h"
+#include "GameplayTagsManager.h"
+#include "GameplayTagsModule.h"
 #include "PulseSystemLibrary.generated.h"
 
 /**
@@ -69,6 +68,8 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "PulseTool|GameplayTags")
 	static bool AddChildTags(UPARAM(ref)
 	                         FGameplayTagContainer& Container, FGameplayTag Tag);
+
+
 
 
 	// Enable or disable an actor without destroying it

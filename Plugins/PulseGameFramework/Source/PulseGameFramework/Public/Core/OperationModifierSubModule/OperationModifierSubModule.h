@@ -8,6 +8,8 @@
 #include "Core/PulseSubModuleBase.h"
 #include "Core/CoreTypes.h"
 #include "Core/PoolingSubModule/PulsePoolingManager.h"
+#include "Core/PulseNetworkingModule/IPulseNetObject.h"
+#include "Core/SaveGameSubModule/IPulseSavableObject.h"
 #include "Core/SaveGameSubModule/PulseSaveManager.h"
 #include "OperationModifierSubModule.generated.h"
 
@@ -125,6 +127,7 @@ public:
 	FBuffOperationModifier Modifier;
 	TWeakObjectPtr<AActor> Actor;
 	EBuffCategoryType catType;
+	FReplicatedEntry RepCommand;
 };
 
 // Modifiers Remove Command
@@ -149,6 +152,7 @@ public:
 
 	FName Category;
 	FBuffOperationModifier Modifier;
+	FReplicatedEntry RepCommand;
 };
 
 
@@ -227,11 +231,24 @@ public:
  * Handle update of buffs and debuffs
  */
 UCLASS()
-class PULSEGAMEFRAMEWORK_API UOperationModifierSubModule : public UPulseSubModuleBase
+class PULSEGAMEFRAMEWORK_API UOperationModifierSubModule : public UPulseSubModuleBase, public IIPulseSavableObject, public IIPulseNetObject
 {
 	GENERATED_BODY()
 
 private:
+	bool _bCanSave = false;
+	bool _bHasAuthority = false;
+	bool _bIsServer = false;
+	bool _bCanReplicate = false;
+	
+	// Replication tags
+	FName _rootReplicationTag = "Pulse.Core.OpModifiers";
+	FName _userReplicationTag = "Pulse.Core.OpModifiers.User";
+	FName _sessionReplicationTag = "Pulse.Core.OpModifiers.Session";
+	FName _characterReplicationTag = "Pulse.Core.OpModifiers.Character";
+	FName _npcReplicationTag = "Pulse.Core.OpModifiers.NPC";
+	FName _actorReplicationTag = "Pulse.Core.OpModifiers.Actor";
+	
 	bool _autoApplyGameplayEffects = false;
 	// Buffs to the global user. resist between sessions, saves, platform and maybe games. Have to be server auth
 	TMap<FName, FBuffOperationPack> _playerUserModifiers;
@@ -273,13 +290,11 @@ protected:
 	bool FindBuff(TMap<FName, FBuffOperationPack>& TargetPack, const FString& UID, FName& OutCategory, int32& OutIndex, TWeakObjectPtr<AActor>& OutActor);
 	UFUNCTION()
 	void OnActorDestroyed_Internal(AActor* DestroyedActor);
-	UFUNCTION()
-	void OnSaveBuffs_Internal(const FString& SlotName, const int32 UserIndex, USaveMetaWrapper* SaveMetaDataWrapper, bool bAutoSave);
-	UFUNCTION()
-	void OnLoadGameBuffs_Internal(ELoadSaveResponse Response, int32 UserIndex, UPulseSaveData* LoadedSaveData);
 	static UOperationModifierSubModule* Get(const UObject* WorldContext);
-	TQueue<FBuffAddOperationCommand>* GetAddQueue(const FBuffOperationModifier& Modifier, const FName& Category, FBuffAddOperationCommand& OutCommand, AActor* Actor = nullptr);
-	TQueue<FBuffRemoveOperationCommand>* GetRemoveQueue(const FString& ModifierUID, FBuffRemoveOperationCommand& OutCommand);
+	TQueue<FBuffAddOperationCommand>* GetAddQueue(const FBuffOperationModifier& Modifier, const FName& Category, FBuffAddOperationCommand& OutCommand, AActor* Actor = nullptr, bool _bOverrideNetAuth = false);
+	TQueue<FBuffRemoveOperationCommand>* GetRemoveQueue(const FString& ModifierUID, FBuffRemoveOperationCommand& OutCommand, bool _bOverrideNetAuth = false);
+	FReplicatedEntry EncodeFromModifier(const FBuffOperationModifier& Modifier, const FName& Category, EBuffCategoryType CategoryType, AActor* Actor) const;
+	bool DecodeToModifier(const FReplicatedEntry& RepEntry, FBuffOperationModifier& OutModifier, FName& OutCategory, EBuffCategoryType& OutCategoryType, AActor*& OutActor) const;
 	bool AddGameplayEffect(UObject* AbilitySystemTarget, FBuffOperationModifier Buff);
 	bool RemoveGameplayEffect(FGameplayEffectSpecHandle OutSpec);
 
@@ -298,7 +313,13 @@ public:
 
 	UPROPERTY(BlueprintAssignable, Category = "Buff Modifiers")
 	FOnActorBuffModifierChanged OnActorBuffModifierChanged;
-
+	
+	virtual UClass* GetSaveClassType_Implementation() override;
+	virtual void OnLoadedObject_Implementation(UObject* LoadedObject) override;
+	virtual UObject* OnSaveObject_Implementation(const FString& SlotName, const int32 UserIndex, USaveMetaWrapper* SaveMetaDataWrapper, bool bAutoSave) override;
+	
+	virtual void OnNetInit_Implementation() override;
+	virtual void OnNetValueReplicated_Implementation(const FName Tag, FReplicatedEntry Value, EReplicationEntryOperationType OpType) override;
 
 	virtual FName GetSubModuleName() const override;
 	virtual bool WantToTick() const override;

@@ -80,6 +80,7 @@ void UPulseSaveManager::OnLoadedGame_Internal(const FString& SlotName, const int
 				response = HashMismatch;
 		}
 	}
+	OnGameLoaded_Raw.Broadcast(response, UserIndex, loaded);
 	OnGameLoaded.Broadcast(response, UserIndex, loaded);
 }
 
@@ -179,6 +180,7 @@ bool UPulseSaveManager::SaveGameInternal(const int32 UserIndex, const int32 Slot
 		SavedDelegate.BindUObject(this, &UPulseSaveManager::OnSavedGame_Internal);
 		// Notify all wew are about to save
 		USaveMetaWrapper* SaveMetaWrapper = NewObject<USaveMetaWrapper>(this);
+		OnGameAboutToSave_Raw.Broadcast(slot, UserIndex, SaveMetaWrapper, bIsAutoSave);
 		OnGameAboutToSave.Broadcast(slot, UserIndex, SaveMetaWrapper, bIsAutoSave);
 		SavingGame++;
 		// Hashing
@@ -527,4 +529,17 @@ bool UPulseSaveManager::VerifyLoadSaveHash(const FString& SlotName, const int32 
 	auto hash = FMD5::HashBytes(&_byteDatas[0], _byteDatas.Num());
 	// Compare with meta data hash
 	return meta.SaveHash == hash;
+}
+
+UPulseSaveManager* UPulseSaveManager::Get(const UObject* WorldContextObject)
+{
+	if (!WorldContextObject)
+		return nullptr;
+	const auto gi = UGameplayStatics::GetGameInstance(WorldContextObject);
+	if (!gi)
+		return nullptr;
+	const auto core = gi->GetSubsystem<UPulseCoreModule>();
+	if (!core)
+		return nullptr;
+	return core->GetSubModule<UPulseSaveManager>();
 }

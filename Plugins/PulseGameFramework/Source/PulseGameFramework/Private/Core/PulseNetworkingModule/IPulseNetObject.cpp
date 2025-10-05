@@ -13,18 +13,18 @@ bool IIPulseNetObject::BindNetworkManager()
 	if (!netMgr)
 		return false;
 	TWeakObjectPtr<UObject> w_Ptr = thisObj;
-	OnStateObjectRep_Raw = netMgr->OnNetReplication_Raw.AddLambda([w_Ptr](const FGameplayTag& Tag, const FReplicatedEntry& Value, EReplicationEntryOperationType Operation)-> void
-	{
-		if (auto obj = w_Ptr.Get()) IIPulseNetObject::Execute_OnNetValueReplicated(obj, Tag, Value, Operation);
-	});
-	OnStatelessObjectRep_Raw = netMgr->OnNetRPC_Raw.AddLambda([w_Ptr](const FGameplayTag& Tag, const FReplicatedEntry& Value)-> void
-	{
-		if (auto obj = w_Ptr.Get()) IIPulseNetObject::Execute_OnNetReceiveBroadcastEvent(obj, Tag, Value);
-	});
+	OnStateObjectRep_Raw = netMgr->OnNetReplication_Raw.AddLambda([w_Ptr](const FName& Tag, const FReplicatedEntry& Value, EReplicationEntryOperationType Operation)-> void
+		{
+			if (auto obj = w_Ptr.Get()) IIPulseNetObject::Execute_OnNetValueReplicated(obj, Tag, Value, Operation);
+		});
+	OnStatelessObjectRep_Raw = netMgr->OnNetRPC_Raw.AddLambda([w_Ptr](const FName& Tag, const FReplicatedEntry& Value)-> void
+		{
+			if (auto obj = w_Ptr.Get()) IIPulseNetObject::Execute_OnNetReceiveBroadcastEvent(obj, Tag, Value);
+		});
 	OnNetInit_Raw = netMgr->OnNetInit_Raw.AddLambda([w_Ptr]()-> void
-	{
-		if (auto obj = w_Ptr.Get()) IIPulseNetObject::Execute_OnNetInit(obj);
-	});
+		{
+			if (auto obj = w_Ptr.Get()) IIPulseNetObject::Execute_OnNetInit(obj);
+		});
 	return true;
 }
 
@@ -48,7 +48,7 @@ bool IIPulseNetObject::UnbindNetworkManager()
 	return true;
 }
 
-bool IIPulseNetObject::ReplicateValue_Implementation(const FGameplayTag Tag, FReplicatedEntry Value)
+bool IIPulseNetObject::ReplicateValue_Implementation(const FName Tag, FReplicatedEntry Value)
 {
 	if (!Tag.IsValid())
 		return false;
@@ -58,7 +58,17 @@ bool IIPulseNetObject::ReplicateValue_Implementation(const FGameplayTag Tag, FRe
 	return UPulseNetManager::ReplicateValue(thisObj, Tag, Value);
 }
 
-bool IIPulseNetObject::BroadcastNetEvent_Implementation(const FGameplayTag Tag, FReplicatedEntry Value, bool Reliable)
+bool IIPulseNetObject::RemoveReplicationTag_Implementation(const FName Tag, UObject* SpecificObject)
+{
+	if (!Tag.IsValid())
+		return false;
+	auto thisObj = Cast<UObject>(this);
+	if (!thisObj)
+		return false;
+	return UPulseNetManager::RemoveReplicatedValue(thisObj, Tag, SpecificObject);
+}
+
+bool IIPulseNetObject::BroadcastNetEvent_Implementation(const FName Tag, FReplicatedEntry Value, bool Reliable)
 {
 	if (!Tag.IsValid())
 		return false;
@@ -68,17 +78,13 @@ bool IIPulseNetObject::BroadcastNetEvent_Implementation(const FGameplayTag Tag, 
 	return UPulseNetManager::MakeRPCall(thisObj, Tag, Value, Reliable);
 }
 
-bool IIPulseNetObject::TryGetNetRepValue_Implementation(const FGameplayTag Tag, TArray<FReplicatedEntry>& OutValues, bool IncludeChildren)
+bool IIPulseNetObject::TryGetNetRepValues_Implementation(const FName Tag, TArray<FReplicatedEntry>& OutValues)
 {
 	if (!Tag.IsValid())
 		return false;
 	auto thisObj = Cast<UObject>(this);
 	if (!thisObj)
 		return false;
-	if (IncludeChildren)
-		UPulseNetManager::TryGetReplicatedValues(thisObj, Tag, OutValues);
-	FReplicatedEntry keyVal;
-	if (UPulseNetManager::TryGetReplicatedValue(thisObj, Tag, keyVal))
-		OutValues.Insert(keyVal, 0);
+	UPulseNetManager::TryGetReplicatedValues(thisObj, Tag, OutValues);
 	return OutValues.Num() > 0;
 }

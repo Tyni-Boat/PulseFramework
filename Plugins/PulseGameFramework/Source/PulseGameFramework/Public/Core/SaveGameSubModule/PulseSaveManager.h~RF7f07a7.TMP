@@ -222,14 +222,12 @@ public:
 
 	UPROPERTY(BlueprintAssignable, Category = "Save Manager")
 	FOnPostLoadGame OnGameLoaded;
-	FOnPostLoadGame_Raw OnGameLoaded_Raw;
 
 	UPROPERTY(BlueprintAssignable, Category = "Save Manager")
 	FOnPostSaveGame OnGameSaved;
 
 	UPROPERTY(BlueprintAssignable, Category = "Save Manager")
 	FOnPreSaveGame OnGameAboutToSave;
-	FOnPreSaveGame_Raw OnGameAboutToSave_Raw;
 
 	UPROPERTY(BlueprintAssignable, Category = "Save Manager")
 	FOnPreLoadGame OnGameAboutToLoad;
@@ -304,7 +302,4 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "Save Manager")
 	bool VerifyLoadSaveHash(const FString& SlotName, const int32 UserIndex, UPulseSaveData* Data) const;
-
-	// Get The reference to the save manager
-	static UPulseSaveManager* Get(const UObject* WorldContextObject);
 };

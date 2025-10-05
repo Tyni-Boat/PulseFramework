@@ -246,6 +246,8 @@ void UBuffModifierHandler::UnbindManager(UOperationModifierSubModule* Mgr)
 
 void UOperationModifierSubModule::UpdatePack(TMap<FName, FBuffOperationPack>& TargetPack, const float DeltaTime, EBuffCategoryType Type)
 {
+	if (!_bHasAuthority)
+		return;
 	for (auto& elem : TargetPack)
 	{
 		TArray<FBuffOperationModifier> expiredOnes;
@@ -254,30 +256,7 @@ void UOperationModifierSubModule::UpdatePack(TMap<FName, FBuffOperationPack>& Ta
 		for (const auto& buff : expiredOnes)
 		{
 			FString uid = buff.UID;
-			switch (Type)
-			{
-			case EBuffCategoryType::Actor:
-				for (const auto& link : _actorLinks)
-				{
-					if (link.Value.Modifiers.IndexOfByPredicate([buff](const FBuffOperationModifier& bff)-> bool { return buff.UID == bff.UID; }) == INDEX_NONE)
-						continue;
-					auto actorPtr = link.Key.Get();
-					_actorRemoveCmd.Enqueue(FBuffRemoveOperationCommand(uid, Type, actorPtr));
-				}
-				break;
-			case EBuffCategoryType::PlayerCharacter:
-				_playerCharacterRemoveCmd.Enqueue(FBuffRemoveOperationCommand(uid, Type));
-				break;
-			case EBuffCategoryType::PlayerController:
-				_playerSessionRemoveCmd.Enqueue(FBuffRemoveOperationCommand(uid, Type));
-				break;
-			case EBuffCategoryType::NPCCharacter:
-				_npcCharacterRemoveCmd.Enqueue(FBuffRemoveOperationCommand(uid, Type));
-				break;
-			case EBuffCategoryType::User:
-				_playerUserRemoveCmd.Enqueue(FBuffRemoveOperationCommand(uid, Type));
-				break;
-			}
+			RemoveModifier(this, uid);
 		}
 	}
 }
@@ -308,9 +287,13 @@ void UOperationModifierSubModule::ExecuteAddCommands(TMap<FName, FBuffOperationP
 		if (addCmd.catType == EBuffCategoryType::Actor && !addCmd.Actor.IsValid())
 			continue;
 		addCmd.Category = FName(*str);
-		// Make The UID
-		auto guid = FGuid::NewGuid();
-		addCmd.Modifier.UID = guid.ToString();
+		if (addCmd.Modifier.UID.IsEmpty())
+		{
+			// Make The UID
+			auto guid = FGuid::NewGuid();
+			addCmd.Modifier.UID = guid.ToString();
+		}
+		addCmd.RepCommand = addCmd.RepCommand.WithName(FName(addCmd.Modifier.UID));
 		//
 		if (TargetPack.Contains(addCmd.Category))
 		{
@@ -377,6 +360,13 @@ void UOperationModifierSubModule::ExecuteAddCommands(TMap<FName, FBuffOperationP
 			}
 			break;
 		}
+
+		// Replicate Add command
+		if (_bCanReplicate)
+		{
+			FString strTag = FString::Printf(TEXT("%s.%s"), *addCmd.RepCommand.Tag.ToString(), *addCmd.Modifier.UID);
+			IIPulseNetObject::Execute_ReplicateValue(this, FName(strTag), addCmd.RepCommand);
+		}
 	}
 }
 
@@ -414,6 +404,14 @@ void UOperationModifierSubModule::BroadcastRemoveCommands()
 	FBuffRemoveOperationCommand remCmd;
 	while (_removeCmdBroadcastQueue.Dequeue(remCmd))
 	{
+		if (auto hdl = _modifierHandlers.Find(remCmd.UID))
+		{
+			if (hdl)
+				if ((*hdl)->IsValid())
+					(*hdl)->Execute_ReturnToPool(hdl->Get());
+			_modifierHandlers.Remove(remCmd.UID);
+		}
+		
 		switch (remCmd.CatType)
 		{
 		case EBuffCategoryType::Actor:
@@ -436,6 +434,13 @@ void UOperationModifierSubModule::BroadcastRemoveCommands()
 		{
 			RemoveGameplayEffect(_modifierGameplayEffectHandles[remCmd.UID]);
 			_modifierGameplayEffectHandles.Remove(remCmd.UID);
+		}
+		
+		// Replicate Add command
+		if (_bCanReplicate)
+		{
+			FString strTag = FString::Printf(TEXT("%s.%s"), *remCmd.RepCommand.Tag.ToString(), *remCmd.Modifier.UID);
+			IIPulseNetObject::Execute_RemoveReplicationTag(this, FName(strTag), remCmd.Actor.Get());
 		}
 	}
 }
@@ -482,32 +487,195 @@ void UOperationModifierSubModule::OnActorDestroyed_Internal(AActor* DestroyedAct
 	DestroyedActor->OnDestroyed.RemoveDynamic(this, &UOperationModifierSubModule::OnActorDestroyed_Internal);
 }
 
-void UOperationModifierSubModule::OnSaveBuffs_Internal(const FString& SlotName, const int32 UserIndex, USaveMetaWrapper* SaveMetaDataWrapper, bool bAutoSave)
+UOperationModifierSubModule* UOperationModifierSubModule::Get(const UObject* WorldContext)
 {
-	auto coreModule = Cast<UPulseCoreModule>(_OwningModule);
+	const auto gameInstance = UGameplayStatics::GetGameInstance(WorldContext);
+	if (!gameInstance)
+		return nullptr;
+	auto coreModule = gameInstance->GetSubsystem<UPulseCoreModule>();
 	if (!coreModule)
-		return;
-	auto saveBuffs = NewObject<USaveBuffOperationManagerData>(this);
-	saveBuffs->PlayerUserModifiers = _playerUserModifiers;
-	saveBuffs->PlayerSessionModifiers = _playerSessionModifiers;
-	saveBuffs->PlayerCharacterModifiers = _playerCharacterModifiers;
-	saveBuffs->NpcCharacterModifiers = _npcCharacterModifiers;
-	coreModule->GetSaveManager()->WriteAsSavedValue(saveBuffs, UserIndex);
+		return nullptr;
+	return coreModule->GetBuffManager();
 }
 
-void UOperationModifierSubModule::OnLoadGameBuffs_Internal(ELoadSaveResponse Response, int32 UserIndex, UPulseSaveData* LoadedSaveData)
+TQueue<FBuffAddOperationCommand>* UOperationModifierSubModule::GetAddQueue(const FBuffOperationModifier& Modifier, const FName& Category, FBuffAddOperationCommand& OutCommand,
+                                                                           AActor* Actor, bool _bOverrideNetAuth)
 {
-	if (Response != ELoadSaveResponse::Success)
-		return;
-	if (LoadedSaveData == nullptr)
-		return;
-	auto coreModule = Cast<UPulseCoreModule>(_OwningModule);
-	if (!coreModule)
-		return;
-	UObject* outObj = nullptr;
-	if (!coreModule->GetSaveManager()->ReadSavedValue(USaveBuffOperationManagerData::StaticClass(), outObj, UserIndex))
-		return;
-	if (auto saveBuffs = Cast<USaveBuffOperationManagerData>(outObj))
+	OutCommand.CharacterID = Modifier.CharacterID;
+	OutCommand.Modifier = Modifier;
+	OutCommand.Actor = Actor;
+	OutCommand.Category = Category;
+	if (Modifier.CharacterID.IsValid() && Modifier.PlayerIndex >= 0)
+	{
+		OutCommand.catType = EBuffCategoryType::PlayerCharacter;
+		OutCommand.RepCommand = EncodeFromModifier(OutCommand.Modifier, Category, OutCommand.catType, OutCommand.Actor.Get());
+		return (_bHasAuthority || _bOverrideNetAuth)? &_playerCharacterAddCmd : nullptr;
+	}
+	if (Modifier.UserID.IsValid() && !Modifier.UserID.IsNone())
+	{
+		OutCommand.catType = EBuffCategoryType::User;
+		OutCommand.RepCommand = EncodeFromModifier(OutCommand.Modifier, Category, OutCommand.catType, OutCommand.Actor.Get());
+		return (_bHasAuthority || _bOverrideNetAuth)? &_playerUserAddCmd : nullptr;
+	}
+	if (Modifier.CharacterID.IsValid())
+	{
+		OutCommand.catType = EBuffCategoryType::NPCCharacter;
+		OutCommand.RepCommand = EncodeFromModifier(OutCommand.Modifier, Category, OutCommand.catType, OutCommand.Actor.Get());
+		return (_bIsServer || _bOverrideNetAuth)? &_npcCharacterAddCmd : nullptr;
+	}
+	if (Modifier.PlayerIndex >= 0)
+	{
+		OutCommand.catType = EBuffCategoryType::PlayerController;
+		OutCommand.RepCommand = EncodeFromModifier(OutCommand.Modifier, Category, OutCommand.catType, OutCommand.Actor.Get());
+		return (_bHasAuthority || _bOverrideNetAuth)? &_playerSessionAddCmd : nullptr;
+	}
+	if (Actor != nullptr)
+	{
+		OutCommand.catType = EBuffCategoryType::Actor;
+		OutCommand.RepCommand = EncodeFromModifier(OutCommand.Modifier, Category, OutCommand.catType, OutCommand.Actor.Get());
+		return (Actor->HasAuthority() || _bOverrideNetAuth)? &_actorAddCmd : nullptr;
+	}
+	return nullptr;
+}
+
+TQueue<FBuffRemoveOperationCommand>* UOperationModifierSubModule::GetRemoveQueue(const FString& ModifierUID, FBuffRemoveOperationCommand& OutCommand, bool _bOverrideNetAuth)
+{
+	if (ModifierUID.IsEmpty())
+		return nullptr;
+	int32 index = INDEX_NONE;
+	FName category;
+	TWeakObjectPtr<AActor> actor = nullptr;
+	OutCommand.UID = ModifierUID;
+	if (FindBuff(_actorModifiers, ModifierUID, category, index, actor))
+	{
+		OutCommand.Actor = actor;
+		OutCommand.CatType = EBuffCategoryType::Actor;
+		OutCommand.RepCommand = EncodeFromModifier(_actorModifiers[category].Modifiers[index], category, OutCommand.CatType, actor.Get());
+		return ((actor.Get() && actor->HasAuthority()) || _bOverrideNetAuth)? &_actorRemoveCmd : nullptr;
+	}
+	if (FindBuff(_npcCharacterModifiers, ModifierUID, category, index, actor))
+	{
+		OutCommand.Actor = actor;
+		OutCommand.CatType = EBuffCategoryType::NPCCharacter;
+		OutCommand.RepCommand = EncodeFromModifier(_npcCharacterModifiers[category].Modifiers[index], category, OutCommand.CatType, actor.Get());
+		return (_bIsServer || _bOverrideNetAuth)? &_npcCharacterRemoveCmd : nullptr;
+	}
+	if (FindBuff(_playerCharacterModifiers, ModifierUID, category, index, actor))
+	{
+		OutCommand.Actor = actor;
+		OutCommand.CatType = EBuffCategoryType::PlayerCharacter;
+		OutCommand.RepCommand = EncodeFromModifier(_playerCharacterModifiers[category].Modifiers[index], category, OutCommand.CatType, actor.Get());
+		return (_bHasAuthority || _bOverrideNetAuth)? &_playerCharacterRemoveCmd : nullptr;
+	}
+	if (FindBuff(_playerSessionModifiers, ModifierUID, category, index, actor))
+	{
+		OutCommand.Actor = actor;
+		OutCommand.CatType = EBuffCategoryType::PlayerController;
+		OutCommand.RepCommand = EncodeFromModifier(_playerSessionModifiers[category].Modifiers[index], category, OutCommand.CatType, actor.Get());
+		return (_bHasAuthority || _bOverrideNetAuth)? &_playerSessionRemoveCmd : nullptr;
+	}
+	if (FindBuff(_playerUserModifiers, ModifierUID, category, index, actor))
+	{
+		OutCommand.Actor = actor;
+		OutCommand.CatType = EBuffCategoryType::User;
+		OutCommand.RepCommand = EncodeFromModifier(_playerUserModifiers[category].Modifiers[index], category, OutCommand.CatType, actor.Get());
+		return (_bHasAuthority || _bOverrideNetAuth)? &_playerUserRemoveCmd : nullptr;
+	}
+	return nullptr;
+}
+
+FReplicatedEntry UOperationModifierSubModule::EncodeFromModifier(const FBuffOperationModifier& Modifier, const FName& Category, EBuffCategoryType CategoryType, AActor* Actor) const
+{
+	FName tag = "";
+	switch (CategoryType)
+	{
+	case EBuffCategoryType::Actor: tag = _actorReplicationTag; break;
+	case EBuffCategoryType::PlayerCharacter: tag = _characterReplicationTag; break;
+	case EBuffCategoryType::PlayerController: tag = _sessionReplicationTag; break;
+	case EBuffCategoryType::NPCCharacter: tag = _npcReplicationTag; break;
+	case EBuffCategoryType::User: tag = _userReplicationTag; break;
+	}
+	FString AddData = FString::Printf(TEXT("%s|%s|%s"), *Modifier.UserID.ToString(), *Modifier.Context.GetTagName().ToString(), *Modifier.CharacterID.ToString());
+	return FReplicatedEntry(tag).WithEnumValue(static_cast<uint8>(CategoryType))
+	.WithName(FName(Modifier.UID), 0)
+	.WithName(Category, 1)
+	.WithName(FName(AddData), 2)
+	.WithObject(Actor)
+	.WithClass(Modifier.GameplayAbilityEffect)
+	.WithDouble(Modifier.Duration)
+	.WithVector(FVector(Modifier.Value, Modifier.bValueAsPercentage, static_cast<uint8>(Modifier.Operator)), 0)
+	.WithVector(FVector(Modifier.PlayerIndex, static_cast<uint8>(Modifier.StackingType), Modifier.GameplayAbilityEffectLevel), 1)
+	.WithVector(FVector(Modifier.LifeTimeLeft, 0,0), 2);
+}
+
+ bool UOperationModifierSubModule::DecodeToModifier(const FReplicatedEntry& RepEntry, FBuffOperationModifier& OutModifier, FName& OutCategory, EBuffCategoryType& OutCategoryType, AActor*& OutActor) const
+{
+	auto catStr = RepEntry.NameValue_1.ToString();
+	auto uidStr = RepEntry.NameValue.ToString();
+	uidStr.RemoveSpacesInline();
+	catStr.RemoveSpacesInline();
+	if (catStr.IsEmpty() || uidStr.IsEmpty())
+		return false;
+	OutCategory = FName(catStr);
+	OutCategoryType = static_cast<EBuffCategoryType>(RepEntry.EnumValue);
+	OutActor = Cast<AActor>(RepEntry.WeakObjectPtr.Get());
+	FBuffOperationModifier Modifier;
+	FString userId, rest, context, charID;
+	auto addData = RepEntry.NameValue_2.ToString();
+	addData.Split("|", &userId, &rest);
+	rest.Split("|", &context, &charID);
+	auto contextTag = FGameplayTag::RequestGameplayTag(FName(context), false);
+	if (!contextTag.IsValid())
+		return false;
+	Modifier.UID = uidStr;
+	Modifier.Context = contextTag;
+	Modifier.UserID = FName(userId);
+	Modifier.PlayerIndex = RepEntry.Float32Value.X;
+	Modifier.CharacterID = FPrimaryAssetId::FromString(charID);
+	Modifier.GameplayAbilityEffect = RepEntry.SoftClassPtr.Get();
+	Modifier.Duration = RepEntry.DoubleValue;
+	Modifier.Value = RepEntry.Float31Value.X;
+	Modifier.bValueAsPercentage = RepEntry.Float31Value.Y > 0;
+	Modifier.Operator = static_cast<ENumericOperator>(RepEntry.Float31Value.Z);
+	Modifier.StackingType = static_cast<EBuffStackingType>(RepEntry.Float32Value.Y);
+	Modifier.GameplayAbilityEffectLevel = RepEntry.Float32Value.Z;
+	Modifier.LifeTimeLeft = RepEntry.Float33Value.X;
+	OutModifier = Modifier;
+	return true;
+}
+
+bool UOperationModifierSubModule::AddGameplayEffect(UObject* AbilitySystemTarget, FBuffOperationModifier Buff)
+{
+	if (!_autoApplyGameplayEffects)
+		return false;
+	// if (addCmd.Modifier.GameplayAbilityEffect && addCmd.Actor->Implements<UAbilitySystemInterface>())
+	// {
+	// if (UAbilitySystemComponent* abilityComp = Cast<IAbilitySystemInterface>(addCmd.Actor)->GetAbilitySystemComponent())
+	// {
+	// 	FGameplayEffectSpec spc;
+	// 	auto hdl = abilityComp->ApplyGameplayEffectSpecToSelf()
+	// }
+	// }
+	//_modifierGameplayEffectHandles.Add()
+	return false;
+}
+
+bool UOperationModifierSubModule::RemoveGameplayEffect(FGameplayEffectSpecHandle OutSpec)
+{
+	if (!_autoApplyGameplayEffects)
+		return false;
+	return false;
+}
+
+
+UClass* UOperationModifierSubModule::GetSaveClassType_Implementation()
+{
+	return USaveBuffOperationManagerData::StaticClass();
+}
+
+void UOperationModifierSubModule::OnLoadedObject_Implementation(UObject* LoadedObject)
+{
+	if (auto saveBuffs = Cast<USaveBuffOperationManagerData>(LoadedObject))
 	{
 		// Notify removals
 		for (const auto item : _playerUserModifiers)
@@ -545,119 +713,126 @@ void UOperationModifierSubModule::OnLoadGameBuffs_Internal(ELoadSaveResponse Res
 		for (const auto item : _npcCharacterModifiers)
 			for (const auto mod : item.Value.Modifiers)
 				OnUserBuffModifierChanged.Broadcast(item.Key, mod, false);
+		
+		// Replicate
+		if (_bCanReplicate)
+		{
+			// User
+			for (const auto item : _playerUserModifiers)
+			{
+				for (const auto mod : item.Value.Modifiers)
+				{
+					auto netEntry = EncodeFromModifier(mod, item.Key, EBuffCategoryType::User, nullptr);
+					FString strTag = FString::Printf(TEXT("%s.%s"), *netEntry.Tag.ToString(), *mod.UID);
+					IIPulseNetObject::Execute_ReplicateValue(this, FName(strTag), netEntry);
+				}
+			}
+			// Session
+			for (const auto item : _playerSessionModifiers)
+			{
+				for (const auto mod : item.Value.Modifiers)
+				{
+					auto netEntry = EncodeFromModifier(mod, item.Key, EBuffCategoryType::PlayerController, nullptr);
+					FString strTag = FString::Printf(TEXT("%s.%s"), *netEntry.Tag.ToString(), *mod.UID);
+					IIPulseNetObject::Execute_ReplicateValue(this, FName(strTag), netEntry);
+				}
+			}
+			// P.Character
+			for (const auto item : _playerCharacterModifiers)
+			{
+				for (const auto mod : item.Value.Modifiers)
+				{
+					auto netEntry = EncodeFromModifier(mod, item.Key, EBuffCategoryType::PlayerCharacter, nullptr);
+					FString strTag = FString::Printf(TEXT("%s.%s"), *netEntry.Tag.ToString(), *mod.UID);
+					IIPulseNetObject::Execute_ReplicateValue(this, FName(strTag), netEntry);
+				}
+			}
+			// NPC
+			for (const auto item : _npcCharacterModifiers)
+			{
+				for (const auto mod : item.Value.Modifiers)
+				{
+					auto netEntry = EncodeFromModifier(mod, item.Key, EBuffCategoryType::NPCCharacter, nullptr);
+					FString strTag = FString::Printf(TEXT("%s.%s"), *netEntry.Tag.ToString(), *mod.UID);
+					IIPulseNetObject::Execute_ReplicateValue(this, FName(strTag), netEntry);
+				}
+			}
+		}
 	}
 }
 
-UOperationModifierSubModule* UOperationModifierSubModule::Get(const UObject* WorldContext)
+UObject* UOperationModifierSubModule::OnSaveObject_Implementation(const FString& SlotName, const int32 UserIndex, USaveMetaWrapper* SaveMetaDataWrapper, bool bAutoSave)
 {
-	const auto gameInstance = UGameplayStatics::GetGameInstance(WorldContext);
-	if (!gameInstance)
-		return nullptr;
-	auto coreModule = gameInstance->GetSubsystem<UPulseCoreModule>();
-	if (!coreModule)
-		return nullptr;
-	return coreModule->GetBuffManager();
+	auto saveBuffs = NewObject<USaveBuffOperationManagerData>(this);
+	saveBuffs->PlayerUserModifiers = _playerUserModifiers;
+	saveBuffs->PlayerSessionModifiers = _playerSessionModifiers;
+	saveBuffs->PlayerCharacterModifiers = _playerCharacterModifiers;
+	saveBuffs->NpcCharacterModifiers = _npcCharacterModifiers;
+	return saveBuffs;
 }
 
-TQueue<FBuffAddOperationCommand>* UOperationModifierSubModule::GetAddQueue(const FBuffOperationModifier& Modifier, const FName& Category, FBuffAddOperationCommand& OutCommand,
-                                                                           AActor* Actor)
+
+void UOperationModifierSubModule::OnNetInit_Implementation()
 {
-	if (!Modifier.UID.IsEmpty())
-		return nullptr;
-	OutCommand.CharacterID = Modifier.CharacterID;
-	OutCommand.Modifier = Modifier;
-	OutCommand.Actor = Actor;
-	OutCommand.Category = Category;
-	if (Modifier.CharacterID.IsValid() && Modifier.PlayerIndex >= 0)
+	if (auto coreModule = Cast<UPulseCoreModule>(_OwningModule))
 	{
-		OutCommand.catType = EBuffCategoryType::PlayerCharacter;
-		return &_playerCharacterAddCmd;
+		if (auto netMgr = coreModule->GetNetManager())
+		{
+			_bHasAuthority = netMgr->HasAuthority();
+			_bIsServer = netMgr->GetNetMode() < NM_Client;
+		}
 	}
-	if (Modifier.UserID.IsValid() && !Modifier.UserID.IsNone())
+	TArray<FReplicatedEntry> outReplicatedEntries;
+	if (IIPulseNetObject::Execute_TryGetNetRepValues(this, _rootReplicationTag, outReplicatedEntries))
 	{
-		OutCommand.catType = EBuffCategoryType::User;
-		return &_playerUserAddCmd;
+		for (int i = 0; i < outReplicatedEntries.Num(); i++)
+			IIPulseNetObject::Execute_OnNetValueReplicated(this, outReplicatedEntries[i].Tag, outReplicatedEntries[i], EReplicationEntryOperationType::AddNew);
 	}
-	if (Modifier.CharacterID.IsValid())
-	{
-		OutCommand.catType = EBuffCategoryType::NPCCharacter;
-		return &_npcCharacterAddCmd;
-	}
-	if (Modifier.PlayerIndex >= 0)
-	{
-		OutCommand.catType = EBuffCategoryType::PlayerController;
-		return &_playerSessionAddCmd;
-	}
-	if (Actor != nullptr)
-	{
-		OutCommand.catType = EBuffCategoryType::Actor;
-		return &_actorAddCmd;
-	}
-	return nullptr;
 }
 
-TQueue<FBuffRemoveOperationCommand>* UOperationModifierSubModule::GetRemoveQueue(const FString& ModifierUID, FBuffRemoveOperationCommand& OutCommand)
+void UOperationModifierSubModule::OnNetValueReplicated_Implementation(const FName Tag, FReplicatedEntry Value, EReplicationEntryOperationType OpType)
 {
-	if (ModifierUID.IsEmpty())
-		return nullptr;
-	int32 index = INDEX_NONE;
-	FName category;
-	TWeakObjectPtr<AActor> actor = nullptr;
-	OutCommand.UID = ModifierUID;
-	if (FindBuff(_actorModifiers, ModifierUID, category, index, actor))
+	FString sTag = Tag.ToString();
+	FBuffOperationModifier mod;
+	FName Category = "";
+	EBuffCategoryType CategoryType = EBuffCategoryType::Actor;
+	AActor* Actor = nullptr;
+	if (!sTag.Contains(_rootReplicationTag.ToString()))
+		return;
+	if (DecodeToModifier(Value, mod, Category, CategoryType, Actor))
 	{
-		OutCommand.Actor = actor;
-		OutCommand.CatType = EBuffCategoryType::Actor;
-		return &_actorRemoveCmd;
+		switch (OpType)
+		{
+		case EReplicationEntryOperationType::Update:
+			{
+				TMap<FName, FBuffOperationPack>* targetContainer = nullptr;
+				switch (CategoryType)
+				{
+				case EBuffCategoryType::Actor: targetContainer = &_actorModifiers;break;
+				case EBuffCategoryType::PlayerCharacter: targetContainer = &_playerCharacterModifiers; break;
+				case EBuffCategoryType::PlayerController: targetContainer = &_playerSessionModifiers; break;
+				case EBuffCategoryType::NPCCharacter: targetContainer = &_npcCharacterModifiers; break;
+				case EBuffCategoryType::User: targetContainer = &_playerUserModifiers; break;
+				}
+				if (targetContainer)
+				{
+					int32 index = INDEX_NONE;
+					TWeakObjectPtr<AActor> weakActor = nullptr;
+					if (FindBuff(*targetContainer, mod.UID, Category, index, weakActor))
+					{
+						(*targetContainer)[Category].Modifiers[index] = mod;
+					}
+				}
+			}
+			break;
+		case EReplicationEntryOperationType::AddNew:
+			AddModifier(this, mod, Category);
+			break;
+		case EReplicationEntryOperationType::Remove:
+			RemoveModifier(this, mod.UID);
+			break;
+		}
 	}
-	if (FindBuff(_npcCharacterModifiers, ModifierUID, category, index, actor))
-	{
-		OutCommand.Actor = actor;
-		OutCommand.CatType = EBuffCategoryType::NPCCharacter;
-		return &_npcCharacterRemoveCmd;
-	}
-	if (FindBuff(_playerCharacterModifiers, ModifierUID, category, index, actor))
-	{
-		OutCommand.Actor = actor;
-		OutCommand.CatType = EBuffCategoryType::PlayerCharacter;
-		return &_playerCharacterRemoveCmd;
-	}
-	if (FindBuff(_playerSessionModifiers, ModifierUID, category, index, actor))
-	{
-		OutCommand.Actor = actor;
-		OutCommand.CatType = EBuffCategoryType::PlayerController;
-		return &_playerSessionRemoveCmd;
-	}
-	if (FindBuff(_playerUserModifiers, ModifierUID, category, index, actor))
-	{
-		OutCommand.Actor = actor;
-		OutCommand.CatType = EBuffCategoryType::User;
-		return &_playerUserRemoveCmd;
-	}
-	return nullptr;
-}
-
-bool UOperationModifierSubModule::AddGameplayEffect(UObject* AbilitySystemTarget, FBuffOperationModifier Buff)
-{
-	if (!_autoApplyGameplayEffects)
-		return false;
-	// if (addCmd.Modifier.GameplayAbilityEffect && addCmd.Actor->Implements<UAbilitySystemInterface>())
-	// {
-	// if (UAbilitySystemComponent* abilityComp = Cast<IAbilitySystemInterface>(addCmd.Actor)->GetAbilitySystemComponent())
-	// {
-	// 	FGameplayEffectSpec spc;
-	// 	auto hdl = abilityComp->ApplyGameplayEffectSpecToSelf()
-	// }
-	// }
-	//_modifierGameplayEffectHandles.Add()
-	return false;
-}
-
-bool UOperationModifierSubModule::RemoveGameplayEffect(FGameplayEffectSpecHandle OutSpec)
-{
-	if (!_autoApplyGameplayEffects)
-		return false;
-	return false;
 }
 
 
@@ -682,20 +857,12 @@ void UOperationModifierSubModule::InitializeSubModule(UPulseModuleBase* OwningMo
 	auto coreModule = Cast<UPulseCoreModule>(OwningModule);
 	if (!coreModule)
 		return;
-	bool bindSaveMgr = false;
 	if (auto settings = coreModule->GetProjectConfig())
 	{
-		bindSaveMgr = settings->bSaveAndLoadActiveBuffsAutomatically;
+		_bCanSave = settings->bSaveAndLoadActiveBuffs;
+		_bCanReplicate = settings->bReplicateActiveBuffs;
 		_autoApplyGameplayEffects = settings->bAutoApplyGameplayEffects;
 		UPulsePoolingManager::SetPoolLimitPerClass(this, UBuffModifierHandler::StaticClass(), settings->BuffHandlePoolingLimit);
-	}
-	if (bindSaveMgr)
-	{
-		if (auto saveMgr = coreModule->GetSaveManager())
-		{
-			saveMgr->OnGameAboutToSave.AddDynamic(this, &UOperationModifierSubModule::OnSaveBuffs_Internal);
-			saveMgr->OnGameLoaded.AddDynamic(this, &UOperationModifierSubModule::OnLoadGameBuffs_Internal);
-		}
 	}
 }
 
@@ -1026,7 +1193,8 @@ bool UOperationModifierSubModule::AddModifier(const UObject* WorldContext, const
 	if (!mgr)
 		return false;
 	FBuffAddOperationCommand cmd;
-	if (auto queue = mgr->GetAddQueue(Modifier, Category, cmd))
+	UKismetSystemLibrary::PrintString(WorldContext, FString::Printf( TEXT("Adding Buff: Override? %d"), WorldContext == mgr));
+	if (auto queue = mgr->GetAddQueue(Modifier, Category, cmd, nullptr, WorldContext == mgr))
 	{
 		queue->Enqueue(cmd);
 		return true;
@@ -1040,7 +1208,7 @@ bool UOperationModifierSubModule::RemoveModifier(const UObject* WorldContext, co
 	if (!mgr)
 		return false;
 	FBuffRemoveOperationCommand cmd;
-	if (auto queue = mgr->GetRemoveQueue(ModifierUID, cmd))
+	if (auto queue = mgr->GetRemoveQueue(ModifierUID, cmd, WorldContext == mgr))
 	{
 		queue->Enqueue(cmd);
 		return true;
