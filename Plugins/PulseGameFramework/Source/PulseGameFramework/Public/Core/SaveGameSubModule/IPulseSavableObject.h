@@ -22,7 +22,6 @@ class PULSEGAMEFRAMEWORK_API IIPulseSavableObject
 {
 	GENERATED_BODY()
 
-public:
 protected:
 	FDelegateHandle OnSave_Raw;
 	FDelegateHandle OnLoad_Raw;

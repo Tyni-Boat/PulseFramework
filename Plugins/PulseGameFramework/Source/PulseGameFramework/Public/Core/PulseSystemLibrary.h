@@ -188,6 +188,18 @@ public:
 		}
 		return result;
 	}
+	template <typename T, pulseCore::concepts::IsNumber Q>
+	static Q SumCollectionBy(const TArray<T>& Collection, std::function<Q(const T&)> Delegate)
+	{
+		Q result = {};
+		if (!Delegate)
+			return result;
+		for (int32 i = 0; i < Collection.Num(); ++i)
+		{
+			result += Delegate(Collection[i]);
+		}
+		return result;
+	}
 
 	template <pulseCore::concepts::IsNumber T>
 	static T AverageCollection(const TArray<T>& Collection)
@@ -195,6 +207,15 @@ public:
 		if (Collection.Num() <= 0)
 			return T();
 		T result = SumCollection(Collection);
+		result /= Collection.Num();
+		return result;
+	}
+	template <typename T, pulseCore::concepts::IsNumber Q>
+	static Q AverageCollectionBy(const TArray<T>& Collection, std::function<Q(const T&)> Delegate)
+	{
+		if (Collection.Num() <= 0)
+			return T();
+		Q result = SumCollectionBy(Collection, Delegate);
 		result /= Collection.Num();
 		return result;
 	}
@@ -210,15 +231,43 @@ public:
 		}
 		return result;
 	}
+	template <typename T, pulseCore::concepts::IsNumber Q>
+	static Q MaxInCollectionBy(const TArray<T>& Collection, std::function<Q(const T&)> Delegate)
+	{
+		Q result = TNumericLimits<Q>::Lowest();
+		if (!Delegate)
+			return result;
+		for (int32 i = 0; i < Collection.Num(); i++)
+		{
+			Q temp = Delegate(Collection[i]);
+			if (temp >= result)
+				result = temp;
+		}
+		return result;
+	}
 
 	template <pulseCore::concepts::IsNumber T>
-	static T MinInCollection(const TArray<T>& Collection, T MaximumPossibleValue)
+	static T MinInCollection(const TArray<T>& Collection)
 	{
 		T result = TNumericLimits<T>::Max();
 		for (int32 i = 0; i < Collection.Num(); i++)
 		{
 			if (Collection[i] <= result)
 				result = Collection[i];
+		}
+		return result;
+	}
+	template <typename T, pulseCore::concepts::IsNumber Q>
+	static Q MinInCollectionBy(const TArray<T>& Collection, std::function<Q(const T&)> Delegate)
+	{
+		Q result = TNumericLimits<Q>::Max();
+		if (!Delegate)
+			return result;
+		for (int32 i = 0; i < Collection.Num(); i++)
+		{
+			Q temp = Delegate(Collection[i]);
+			if (temp <= result)
+				result = temp;
 		}
 		return result;
 	}

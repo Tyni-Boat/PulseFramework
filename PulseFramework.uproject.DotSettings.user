@@ -7,10 +7,16 @@
 	<s:String x:Key="/Default/CodeInspection/ExcludedFiles/FilesAndFoldersToSkip2/=7020124F_002D9FFC_002D4AC3_002D8F3D_002DAAB8E0240759_002Ff_003ASabycop_002Easm_002Fl_003AC_0021_003FUsers_003FYvesEboo_003FAppData_003FLocal_003FTemp_003FSandboxFiles_003FHohesas_003FSabycop_002Easm/@EntryIndexedValue">ForceIncluded</s:String>
 	<s:String x:Key="/Default/CodeInspection/ExcludedFiles/FilesAndFoldersToSkip2/=7020124F_002D9FFC_002D4AC3_002D8F3D_002DAAB8E0240759_002Ff_003ATiwimiz_002Easm_002Fl_003AC_0021_003FUsers_003FYvesEboo_003FAppData_003FLocal_003FTemp_003FSandboxFiles_003FZyworij_003FTiwimiz_002Easm/@EntryIndexedValue">ForceIncluded</s:String>
 	<s:String x:Key="/Default/CodeInspection/ExcludedFiles/FilesAndFoldersToSkip2/=7020124F_002D9FFC_002D4AC3_002D8F3D_002DAAB8E0240759_002Ff_003AZobanir_002Easm_002Fl_003AC_0021_003FUsers_003FYvesEboo_003FAppData_003FLocal_003FTemp_003FSandboxFiles_003FWeceboq_003FZobanir_002Easm/@EntryIndexedValue">ForceIncluded</s:String>
-	
-	<s:String x:Key="/Default/Environment/UnitTesting/UnitTestSessionStore/Sessions/=86d5c5c0_002D7b5a_002D465e_002D92ea_002Dc9a3c2390cd3/@EntryIndexedValue">&lt;SessionState ContinuousTestingMode="0" IsActive="True" Name="SerializationTest" xmlns="urn:schemas-jetbrains-com:jetbrains-ut-session"&gt;&#xD;
+	<s:String x:Key="/Default/Environment/UnitTesting/UnitTestSessionStore/Sessions/=43354b11_002D25b9_002D45fd_002Dbe7e_002Deb83e2e8f8fe/@EntryIndexedValue">&lt;SessionState ContinuousTestingMode="0" IsActive="True" Name="InventoryTest #2" xmlns="urn:schemas-jetbrains-com:jetbrains-ut-session"&gt;&#xD;
   &lt;TestAncestor&gt;&#xD;
-    &lt;TestId&gt;UnrealTest::FBAF4034-6D64-F319-4BDC-CD3DB04069C3::::PulseTest.Core.SerializationTest&lt;/TestId&gt;&#xD;
+    &lt;TestId&gt;UnrealTest::E692F0E4-73A9-EF96-ED30-42F5C3A80367::::PulseTest.Core.InventoryTest&lt;/TestId&gt;&#xD;
   &lt;/TestAncestor&gt;&#xD;
 &lt;/SessionState&gt;</s:String>
+	<s:String x:Key="/Default/Environment/UnitTesting/UnitTestSessionStore/Sessions/=6ada3cd8_002Db860_002D4e70_002Dac8c_002D69487b279525/@EntryIndexedValue">&lt;SessionState ContinuousTestingMode="0" Name="InventoryTest" xmlns="urn:schemas-jetbrains-com:jetbrains-ut-session"&gt;&#xD;
+  &lt;TestAncestor&gt;&#xD;
+    &lt;TestId&gt;UnrealTest::E692F0E4-73A9-EF96-ED30-42F5C3A80367::::PulseTest.Core.InventoryTest&lt;/TestId&gt;&#xD;
+  &lt;/TestAncestor&gt;&#xD;
+&lt;/SessionState&gt;</s:String>
+	
+	
 	</wpf:ResourceDictionary>

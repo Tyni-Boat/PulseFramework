@@ -52,6 +52,96 @@ enum class ENumericOperator : uint8
 
 
 USTRUCT(BlueprintType)
+struct PULSEGAMEFRAMEWORK_API FUInt82
+{
+	GENERATED_BODY()
+
+public:
+	FUInt82(){}
+	FUInt82(int x, int y): X(x), Y(y){}
+	FUInt82(int a): X(a), Y(a){}
+	uint8 Lenght() const { return FMath::Sqrt(static_cast<float>((X * X) + (Y * Y))); }
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "UInt2")
+	uint8 X = 0;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "UInt2")
+	uint8 Y = 0;
+	
+	bool operator==(const FUInt82& Other) const
+	{
+		return X == Other.X && Y == Other.Y;
+	}
+};
+FORCEINLINE uint32 GetTypeHash(const FUInt82& Data)
+{
+	return HashCombine(::GetTypeHash(Data.X), ::GetTypeHash(Data.Y));
+}
+
+
+USTRUCT(BlueprintType)
+struct PULSEGAMEFRAMEWORK_API FUInt83
+{
+	GENERATED_BODY()
+
+public:
+	FUInt83(){}
+	FUInt83(int x, int y, int z): X(x), Y(y), Z(z){}
+	FUInt83(int a): X(a), Y(a), Z(a) {}
+	FUInt83(FUInt82 A, int z = 0): X(A.X), Y(A.Y), Z(z) {}
+	uint8 Lenght() const { return FMath::Sqrt(static_cast<float>((X * X) + (Y * Y) + (Z * Z))); }
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "UInt2")
+	uint8 X = 0;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "UInt2")
+	uint8 Y = 0;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "UInt2")
+	uint8 Z = 0;
+	
+	bool operator==(const FUInt83& Other) const
+	{
+		return X == Other.X && Y == Other.Y && Z == Other.Z;
+	}
+};
+
+FORCEINLINE uint32 GetTypeHash(const FUInt83& Data)
+{
+	return HashCombine(HashCombine(::GetTypeHash(Data.X), ::GetTypeHash(Data.Y)), GetTypeHash(Data.Z));
+}
+
+USTRUCT(BlueprintType)
+struct PULSEGAMEFRAMEWORK_API FUInt84
+{
+	GENERATED_BODY()
+
+public:
+	FUInt84(){}
+	FUInt84(int x, int y, int z, int w): X(x), Y(y), Z(z), W(w) {}
+	FUInt84(int a): X(a), Y(a), Z(a), W(a) {}
+	FUInt84(FUInt82 A): X(A.X), Y(A.Y), Z(0) {}
+	FUInt84(FUInt82 A, FUInt82 B): X(A.X), Y(A.Y), Z(B.X), W(B.Y) {}
+	FUInt84(FUInt83 A, int w = 0): X(A.X), Y(A.Y), Z(A.Z), W(w) {}
+	uint8 Lenght() const { return FMath::Sqrt(static_cast<float>((X * X) + (Y * Y) + (Z * Z) + (W * W))); }
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "UInt2")
+	uint8 X = 0;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "UInt2")
+	uint8 Y = 0;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "UInt2")
+	uint8 Z = 0;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "UInt2")
+	uint8 W = 0;
+	
+	bool operator==(const FUInt84& Other) const
+	{
+		return X == Other.X && Y == Other.Y && Z == Other.Z && W == Other.W;
+	}
+};
+FORCEINLINE uint32 GetTypeHash(const FUInt84& Data)
+{
+	return HashCombine(HashCombine(::GetTypeHash(Data.X), ::GetTypeHash(Data.Y)), HashCombine(::GetTypeHash(Data.Z), ::GetTypeHash(Data.W)));
+}
+
+USTRUCT(BlueprintType)
 struct PULSEGAMEFRAMEWORK_API FCodedOperation
 {
 	GENERATED_BODY()
