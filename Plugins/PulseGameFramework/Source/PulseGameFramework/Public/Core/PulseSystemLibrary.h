@@ -11,6 +11,8 @@
 #include "Animation/AnimNotifies/AnimNotifyState.h"
 #include "Kismet/GameplayStatics.h"
 #include "GameplayTagsManager.h"
+#include "Engine/AssetManager.h"
+#include "Engine/AssetManagerSettings.h"
 #include "GameplayTagsModule.h"
 #include "PulseSystemLibrary.generated.h"
 
@@ -70,8 +72,6 @@ public:
 	                         FGameplayTagContainer& Container, FGameplayTag Tag);
 
 
-
-
 	// Enable or disable an actor without destroying it
 	UFUNCTION(BlueprintCallable, Category = "PulseTool|Actors")
 	static bool EnableActor(AActor* Actor, bool Enable);
@@ -96,6 +96,20 @@ public:
 	// Serialize an object to byte array
 	UFUNCTION(BlueprintCallable, Category = "PulseTool|Serialization")
 	static bool DeserializeObjectFromBytes(const TArray<uint8>& bytes, UObject* OutObject);
+
+
+	// Check if an asset type derives from class
+	UFUNCTION(BlueprintCallable, Category = "PulseTool|Serialization")
+	static bool IsAssetTypeDerivedFrom(FPrimaryAssetType AssetType, TSubclassOf<UObject> ClassToCheck)
+	{
+		UAssetManager& AssetManager = UAssetManager::Get();
+		FPrimaryAssetTypeInfo TypeInfo;
+		if (AssetManager.GetPrimaryAssetTypeInfo(AssetType, TypeInfo))
+			return false;
+		if (!TypeInfo.GetAssetBaseClass().Get())
+			return false;
+		return TypeInfo.GetAssetBaseClass().Get()->IsChildOf(ClassToCheck);
+	}
 
 public:
 	// Get A Pulse Module
@@ -188,6 +202,7 @@ public:
 		}
 		return result;
 	}
+
 	template <typename T, pulseCore::concepts::IsNumber Q>
 	static Q SumCollectionBy(const TArray<T>& Collection, std::function<Q(const T&)> Delegate)
 	{
@@ -210,6 +225,7 @@ public:
 		result /= Collection.Num();
 		return result;
 	}
+
 	template <typename T, pulseCore::concepts::IsNumber Q>
 	static Q AverageCollectionBy(const TArray<T>& Collection, std::function<Q(const T&)> Delegate)
 	{
@@ -231,6 +247,7 @@ public:
 		}
 		return result;
 	}
+
 	template <typename T, pulseCore::concepts::IsNumber Q>
 	static Q MaxInCollectionBy(const TArray<T>& Collection, std::function<Q(const T&)> Delegate)
 	{
@@ -257,6 +274,7 @@ public:
 		}
 		return result;
 	}
+
 	template <typename T, pulseCore::concepts::IsNumber Q>
 	static Q MinInCollectionBy(const TArray<T>& Collection, std::function<Q(const T&)> Delegate)
 	{

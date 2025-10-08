@@ -112,6 +112,16 @@ public:
 	float NetPriority = 2.8f;
 	
 #pragma endregion
+
+#pragma region Inventory Manager
+
+	UPROPERTY(EditAnywhere, Config, Category = "Pulse Inventory")
+	bool bReplicateInventory = false;
+	
+	UPROPERTY(EditAnywhere, Config, Category = "Pulse Inventory")
+	bool bSaveInventory = false;
+	
+#pragma endregion
 };
 
 

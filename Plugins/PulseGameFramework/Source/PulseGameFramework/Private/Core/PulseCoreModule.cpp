@@ -3,6 +3,7 @@
 
 #include "Core/PulseCoreModule.h"
 
+#include "Core/InventoryManager/PulseInventoryManager.h"
 #include "Core/OperationModifierSubModule/OperationModifierSubModule.h"
 #include "Core/PoolingSubModule/PulsePoolingManager.h"
 #include "Core/PulseNetworkingModule/PulseNetManager.h"
@@ -67,6 +68,7 @@ TArray<TSubclassOf<UPulseSubModuleBase>> UPulseCoreModule::GetSubmodulesTypes() 
 		UPulseSaveManager::StaticClass(),
 		UOperationModifierSubModule::StaticClass(),
 		UPulseTimeOfDayManager::StaticClass(),
+		UPulseInventoryManager::StaticClass(),
 	};
 }
 
