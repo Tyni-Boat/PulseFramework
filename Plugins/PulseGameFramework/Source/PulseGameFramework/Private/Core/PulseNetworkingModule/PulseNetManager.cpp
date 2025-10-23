@@ -42,6 +42,13 @@ ENetMode UPulseNetManager::GetNetMode() const
 	return ENetMode::NM_MAX;
 }
 
+ENetRole UPulseNetManager::GetNetRole() const
+{
+	if (_netActor)
+		return _netActor->GetLocalRole();
+	return ROLE_None;
+}
+
 bool UPulseNetManager::HasAuthority() const
 {
 	if (_netActor)
@@ -188,58 +195,58 @@ bool UPulseNetManager::TryGetReplicatedValues(const UObject* WorldContextObject,
 	return false;
 }
 
-bool UPulseNetManager::ReplicateValue(const UObject* WorldContextObject, FName Tag, FReplicatedEntry Value)
+ENetworkOperationResult UPulseNetManager::ReplicateValue(const UObject* WorldContextObject, FName Tag, FReplicatedEntry Value)
 {
 	if (auto mgr = Get(WorldContextObject))
 	{
 		return mgr->ReplicateValue_Internal(Tag, Value);
 	}
-	return false;
+	return ENetworkOperationResult::UnknowError;
 }
 
-bool UPulseNetManager::ReplicateValue_Internal(FName Tag, FReplicatedEntry Value, bool fromHistory)
+ENetworkOperationResult UPulseNetManager::ReplicateValue_Internal(FName Tag, FReplicatedEntry Value, bool fromHistory)
 {
 	if (!(static_cast<int32>(GetNetAuth()) & static_cast<int32>(ENetworkAuthorizationState::GameplayValues)))
-		return false;
+		return ENetworkOperationResult::MissingAuthorisation;
 	if (auto netActor = _netActor)
 	{
 		if (!HasAuthority())
-			return false;
+			return ENetworkOperationResult::NoAuthority;
 		Value.Tag = Tag;
 		if (!fromHistory && !_pendingReplicatedValues.IsEmpty())
 		{
 			_pendingReplicatedValues.Enqueue(Value);
-			return true;
+			return ENetworkOperationResult::Success;
 		}
 		netActor->ReplicateValue(Value);
-		return true;
+		return ENetworkOperationResult::Success;
 	}
 	else if (!fromHistory)
 	{
 		Value.Tag = Tag;
 		_pendingReplicatedValues.Enqueue(Value);
-		return true;
+		return ENetworkOperationResult::Success;
 	}
-	return false;
+	return ENetworkOperationResult::UnknowError;
 }
 
-bool UPulseNetManager::RemoveReplicatedValue(const UObject* WorldContextObject, FName Tag, UObject* ForObj)
+ENetworkOperationResult UPulseNetManager::RemoveReplicatedValue(const UObject* WorldContextObject, FName Tag, UObject* ForObj)
 {
 	if (auto mgr = Get(WorldContextObject))
 	{
 		return mgr->RemoveReplicatedValue_Internal(Tag, ForObj, false);
 	}
-	return false;
+	return ENetworkOperationResult::UnknowError;
 }
 
-bool UPulseNetManager::RemoveReplicatedValue_Internal(FName Tag, UObject* ForObj, bool fromHistory)
+ENetworkOperationResult UPulseNetManager::RemoveReplicatedValue_Internal(FName Tag, UObject* ForObj, bool fromHistory)
 {
 	if (!(static_cast<int32>(GetNetAuth()) & static_cast<int32>(ENetworkAuthorizationState::GameplayValues)))
-		return false;
+		return ENetworkOperationResult::MissingAuthorisation;
 	if (auto netActor = _netActor)
 	{
 		if (!HasAuthority())
-			return false;
+			return ENetworkOperationResult::NoAuthority;
 		if (!fromHistory && !_pendingReplicatedValues.IsEmpty())
 		{
 			FReplicatedEntry Entry;
@@ -247,10 +254,10 @@ bool UPulseNetManager::RemoveReplicatedValue_Internal(FName Tag, UObject* ForObj
 			Entry.WeakObjectPtr = ForObj;
 			Entry.FlagValue = -1;
 			_pendingReplicatedValues.Enqueue(Entry);
-			return true;
+			return ENetworkOperationResult::Success;
 		}
 		netActor->RemoveReplicatedItem(Tag, true, ForObj);
-		return true;
+		return ENetworkOperationResult::Success;
 	}
 	else if (!fromHistory)
 	{
@@ -259,47 +266,47 @@ bool UPulseNetManager::RemoveReplicatedValue_Internal(FName Tag, UObject* ForObj
 		Entry.WeakObjectPtr = ForObj;
 		Entry.FlagValue = -1;
 		_pendingReplicatedValues.Enqueue(Entry);
-		return true;
+		return ENetworkOperationResult::Success;
 	}
-	return false;
+	return ENetworkOperationResult::UnknowError;
 }
 
-bool UPulseNetManager::MakeRPCall(const UObject* WorldContextObject, FName Tag, FReplicatedEntry Value, bool Reliable)
+ENetworkOperationResult UPulseNetManager::MakeRPCall(const UObject* WorldContextObject, FName Tag, FReplicatedEntry Value, bool Reliable)
 {
 	if (auto mgr = Get(WorldContextObject))
 	{
 		return mgr->MakeRPCall_Internal(Tag, Value, Reliable);
 	}
-	return false;
+	return ENetworkOperationResult::UnknowError;
 }
 
-bool UPulseNetManager::MakeRPCall_Internal(FName Tag, FReplicatedEntry Value, bool Reliable, bool fromHistory)
+ENetworkOperationResult UPulseNetManager::MakeRPCall_Internal(FName Tag, FReplicatedEntry Value, bool Reliable, bool fromHistory)
 {
 	if (!(static_cast<int32>(GetNetAuth()) & static_cast<int32>(ENetworkAuthorizationState::GameplayValues)))
-		return false;
+		return ENetworkOperationResult::MissingAuthorisation;
 	if (auto netActor = _netActor)
 	{
-		if (!HasAuthority())
-			return false;
+		if (GetNetRole() == ROLE_SimulatedProxy)
+			return ENetworkOperationResult::MissingAuthorisation;
 		Value.Tag = Tag;
 		if (Reliable)
 		{
 			if (!fromHistory && !_pendingReliableRPCs.IsEmpty())
 			{
 				_pendingReliableRPCs.Enqueue(Value);
-				return true;
+				return ENetworkOperationResult::Success;
 			}
 			netActor->ReliableServerRPC(Value);
 		}
 		else
 			netActor->UnreliableServerRPC(Value);
-		return true;
+		return ENetworkOperationResult::Success;
 	}
 	else if (Reliable && !fromHistory)
 	{
 		Value.Tag = Tag;
 		_pendingReliableRPCs.Enqueue(Value);
-		return true;
+		return ENetworkOperationResult::Success;
 	}
-	return false;
+	return ENetworkOperationResult::UnknowError;
 }

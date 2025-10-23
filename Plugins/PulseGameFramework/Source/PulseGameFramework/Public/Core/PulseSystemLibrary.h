@@ -71,6 +71,14 @@ public:
 	static bool AddChildTags(UPARAM(ref)
 	                         FGameplayTagContainer& Container, FGameplayTag Tag);
 
+	// Make A FName Tag by concat names separated by "."
+	UFUNCTION(BlueprintCallable, Category = "PulseTool|GameplayTags")
+	static FName ConstructNametag(TArray<FName> TagParts);
+
+	// Try to extract tag parts separated by "."
+	UFUNCTION(BlueprintCallable, Category = "PulseTool|GameplayTags")
+	static bool ExtractNametagParts(FName Tag, TArray<FName>& OutTagParts);
+
 
 	// Enable or disable an actor without destroying it
 	UFUNCTION(BlueprintCallable, Category = "PulseTool|Actors")

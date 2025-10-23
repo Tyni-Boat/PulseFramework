@@ -34,6 +34,13 @@ public:
 	bool BindNetworkManager();
 	
 	bool UnbindNetworkManager();
+	
+	ENetRole GetNetRole();
+	
+	bool GetNetHasAuthority();
+
+	// Transform a value change to RPC call.
+	virtual bool FailedClientNetRepValueToRPCCall();
 
 	// No Need to implement this function
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category="PulseNetwork|Replication", meta=(AdvancedDisplay = 2))
@@ -54,7 +61,7 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category="PulseNetwork|Replication", meta=(AdvancedDisplay = 2))
 	bool TryGetNetRepValues(const FName Tag, TArray<FReplicatedEntry>& OutValues);
 	bool TryGetNetRepValues_Implementation(const FName Tag, TArray<FReplicatedEntry>& OutValues);
-
+	
 	
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "PulseNetwork|Replication")
 	void OnNetInit();

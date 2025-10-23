@@ -62,7 +62,7 @@ bool FCoreSerializationTest::RunTest(const FString& Parameters)
 
 bool FCoreInventoryTest::RunTest(const FString& Parameters)
 {
-	FInventory Inventory = FInventory(FGuid::NewGuid()).OfSize(6, 8);
+	FInventory Inventory = FInventory().OfSize(6, 8);
 	FInventoryItem Item1, Item2, Item3, Item4, Item5;
 	Item1.ItemID = FPrimaryAssetId(FPrimaryAssetType("Weapon"), "Bazooka");
 	Item1.ItemOccupation = FUInt82(3, 4);

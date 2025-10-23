@@ -3,12 +3,16 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "IDetailTreeNode.h"
 #include "Core/CoreTypes.h"
 #include "Core/PulseSubModuleBase.h"
 #include "Algo/Reverse.h"
 #include "Core/PulseSystemLibrary.h"
 #include "Core/PoolingSubModule/PulsePoolingManager.h"
+#include "Core/PulseNetworkingModule/IPulseNetObject.h"
 #include "Core/PulseResourceManagement/Types/Item/BasePulseBaseItemAsset.h"
+#include "Core/SaveGameSubModule/IPulseSavableObject.h"
+#include "Widgets/Layout/SResponsiveGridPanel.h"
 #include "PulseInventoryManager.generated.h"
 
 
@@ -17,7 +21,7 @@
 UENUM(BlueprintType)
 enum class EInventoryContainerType: uint8
 {
-	Local, // The manager is not aware of this container
+	None, // Invalid Inventory
 	Player, // Is the local player's inventory
 	IDObject, // The container based on the primaryAsset ID
 	Actor, // The container of the actor. like local but the manager is actually aware of it.
@@ -89,7 +93,8 @@ public:
 		if (Quantity >= 0)
 			Quantity += Amount;
 		else
-			QuantityAndDecay.Add(1);
+			for (int i = 0; i < Amount; i++)
+				QuantityAndDecay.Add(1);
 		return true;
 	}
 	bool Remove(int32 Amount)
@@ -98,7 +103,9 @@ public:
 		if (Quantity >= 0)
 			Quantity -= Amount;
 		else if (QuantityAndDecay.Num() > 0)
-			QuantityAndDecay.RemoveAt(QuantityAndDecay.Num() - 1);
+			for (int i = 0; i < Amount; i++)
+				if (QuantityAndDecay.Num() > 0)
+					QuantityAndDecay.RemoveAt(QuantityAndDecay.Num() - 1);
 		else
 			return false;
 		return true;
@@ -166,6 +173,27 @@ public:
 };
 
 USTRUCT(BlueprintType)
+struct FInventoryBound
+{
+	GENERATED_BODY()
+
+public:
+
+	FInventoryBound(){}
+	FInventoryBound(const FGuid& uid, uint8 type = 0): ContainerUID(uid), InventoryType(type){}
+	
+	
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Inventory")
+	FGuid ContainerUID = FGuid();
+	
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Inventory")
+	uint8 InventoryType = 0;
+
+	bool IsValidBound() const { return ContainerUID.IsValid(); }
+	bool operator==(const FInventoryBound& Other) const { return ContainerUID == Other.ContainerUID && InventoryType == Other.InventoryType; }
+};
+
+USTRUCT(BlueprintType)
 struct FInventory
 {
 	GENERATED_BODY()
@@ -174,8 +202,6 @@ public:
 	FInventory()
 	{
 	}
-
-	FInventory(FGuid uid) { if (uid.IsValid()) UID = uid.ToString(); }
 
 	FInventory OfSize(uint8 Columns, uint8 Rows)
 	{
@@ -197,10 +223,7 @@ public:
 
 
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Inventory")
-	FString UID = "";
-
-	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Inventory")
-	FString BoundInventoryUID = "";
+	FInventoryBound BoundInventory;
 
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Inventory")
 	bool bIsDecayableItemInventory = false;
@@ -333,7 +356,7 @@ private:
 
 public:
 
-	bool GetItemSlot(FPrimaryAssetId ItemID, FUInt84& OutLocationAndOccupation)
+	bool GetItemSlot(const FPrimaryAssetId& ItemID, FUInt84& OutLocationAndOccupation)
 	{
 		const int32 Index = Items.IndexOfByPredicate([ItemID](const FInventoryItem& item)-> bool { return item.ItemID == ItemID; });
 		if (Index == INDEX_NONE)
@@ -374,10 +397,7 @@ public:
 	}
 	bool IsValidInventory() const
 	{
-		FGuid uid;
-		if (!FGuid::Parse(UID, uid))
-			return false;
-		return uid.IsValid() && InventorySlots.X > 0 && InventorySlots.Y > 0;
+		return InventorySlots.X > 0 && InventorySlots.Y > 0;
 	}
 	bool AddItem(FInventoryItem Item, int Quantity = 1, bool bAttemptReorganisation = false)
 	{
@@ -450,7 +470,7 @@ public:
 		Items.Add(Item);
 		return true;
 	}
-	bool ConsumeItem(FPrimaryAssetId ItemID, int Quantity, int32& OutConsumedQuantity)
+	bool ConsumeItem(const FPrimaryAssetId& ItemID, int Quantity, int32& OutConsumedQuantity)
 	{
 		if (!ItemID.IsValid())
 			return false;
@@ -464,7 +484,7 @@ public:
 			Items.RemoveAt(index);
 		return true;
 	}
-	bool RemoveItem(FPrimaryAssetId ItemID)
+	bool RemoveItem(const FPrimaryAssetId& ItemID)
 	{
 		if (!ItemID.IsValid())
 			return false;
@@ -474,7 +494,7 @@ public:
 		Items.RemoveAt(index);
 		return true;
 	}
-	bool DecayItem(FPrimaryAssetId ItemID, float decayAmount, int32 decayItemIndex = -1)
+	bool DecayItem(const FPrimaryAssetId& ItemID, float decayAmount, int32 decayItemIndex = -1)
 	{
 		if (!bIsDecayableItemInventory)
 			return false;
@@ -484,7 +504,7 @@ public:
 		if (index == INDEX_NONE)
 			return false;
 		if (decayItemIndex >= 0)
-			return Items[index].DecayItemAt(decayAmount, decayItemIndex);
+			Items[index].DecayItemAt(decayAmount, decayItemIndex);
 		else
 			Items[index].DecayAllItems(decayAmount);
 		if (Items[index].GetQuantity() <= 0)
@@ -505,7 +525,7 @@ public:
 				Items.RemoveAt(i);
 		}
 	}
-	bool GetItemInfos(FPrimaryAssetId ItemID, FInventoryItem& OutItem)
+	bool GetItemInfos(const FPrimaryAssetId& ItemID, FInventoryItem& OutItem) const
 	{
 		if (!ItemID.IsValid())
 			return false;
@@ -542,10 +562,13 @@ public:
 		InventorySlots = newSize;
 		return true;
 	}
-	bool GetPossibleMovements(const FInventoryItem& Item, TArray<FUInt82>& OutLocations) const
+	bool GetPossibleMovements(const FPrimaryAssetId& ItemID, TArray<FUInt82>& OutLocations) const
 	{
 		TArray<FUInt82> availableSlots = GetSlotArray();
-		return GetClusteredSlots(Item.ItemOccupation, availableSlots, OutLocations);
+		FInventoryItem item;
+		if (!GetItemInfos(ItemID, item))
+			return false;
+		return GetClusteredSlots(item.ItemOccupation, availableSlots, OutLocations);
 	}
 	bool MoveItem(const FPrimaryAssetId& ItemID, const FUInt82 NewLocation, bool bMoveOverlappingItems = false)
 	{
@@ -555,7 +578,7 @@ public:
 		if (index == INDEX_NONE)
 			return false;
 		TArray<FUInt82> possibleOutLocations;
-		if (!GetPossibleMovements(Items[index], possibleOutLocations))
+		if (!GetPossibleMovements(Items[index].ItemID, possibleOutLocations))
 			return false;
 		if (!possibleOutLocations.Contains(NewLocation))
 			return false;
@@ -620,6 +643,7 @@ public:
 		if (!AddItem(ResultItem, ResultQty, true))
 		{
 			Items = ItemsBKP;
+			return false;
 		}
 		return true;
 	}
@@ -631,16 +655,16 @@ struct FInventoryContainer
 	GENERATED_BODY()
 
 public:
+
+	FInventoryContainer(){}
+	FInventoryContainer(FGuid GUID): ContainerUID(GUID){}
+	
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Inventory")
+	FGuid ContainerUID = FGuid();
+	
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Inventory")
 	TMap<uint8, FInventory> InventoryPerType;
 
-	FInventory* GetInventoryPtr(FGuid Guid)
-	{
-		for (const auto pair: InventoryPerType)
-			if (pair.Value.UID == Guid.ToString())
-				return &InventoryPerType[pair.Key];
-		return nullptr;
-	}
 	FInventory* GetInventoryPtrByType(uint8 type)
 	{
 		if (InventoryPerType.Contains(type))
@@ -650,8 +674,12 @@ public:
 };
 
 
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnInventoryContainerChanged, UInventoryComponent*, ComponentChanging, FInventoryContainer, Container);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnInventoryChanged, FInventory, ChangedInventory);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnComponentInventoryContainerChanged,UInventoryComponent*, Component, EInventoryContainerType, NewContainerType);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_FiveParams(FOnInventoryContainerAdded,FGuid, NewContainerUID, EInventoryContainerType, NewContainerType, int32, PlayerID, FPrimaryAssetId, ObjectAssetID, AActor*, Actor);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_FiveParams(FOnInventoryContainerRemoved,FGuid, RemovedContainerUID, EInventoryContainerType, RemovedContainerType, int32, PlayerID, FPrimaryAssetId, ObjectAssetID, AActor*, Actor);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnInventoryContainerChanged, FGuid, ContainerUID);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnInventoryChanged, FGuid, ContainerUID, uint8, InventoryType);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FOnInventoryItemChanged, FGuid, ContainerUID, uint8, InventoryType, FPrimaryAssetId, ItemID);
 
 UCLASS(Blueprintable, BlueprintType)
 class UInventoryComponent : public UActorComponent
@@ -663,10 +691,10 @@ public:
 	UInventoryComponent();
 
 private:
+	int32 GetControllerLocalID() const;
+	FPrimaryAssetId GetAssetID() const;
 	bool IsIDInventory() const { return InventoryType == EInventoryContainerType::IDObject; }
-	FInventoryContainer* GetInventoryPtr();
-	FInventoryContainer* GetLocalInventoryPtr();
-	FInventoryContainer _localContainer;
+	FGuid GetContainerUID() const;
 
 protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Inventory")
@@ -682,39 +710,14 @@ protected:
 	
 public:
 	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Inventory")
-	int32 LocalPlayerID = 0;
+	UPROPERTY(BlueprintAssignable, Category = "Inventory")
+	FOnComponentInventoryContainerChanged OnComponentInventoryContainerChanged;
 
 public:
 	
 	// Get an Inventory's Id by its Type
 	UFUNCTION(BlueprintCallable, Category = "Inventory")
-	bool GetInventory(uint8 Type, FGuid& OutInventoryID);
-	
-	// Get the location (X,Y) the amount of additional space (Z,W) the item take in an inventory. 
-	UFUNCTION(BlueprintCallable, Category = "Inventory")
-	bool GetItemSlot(FGuid InventoryID, FPrimaryAssetId ItemID, FUInt84& OutLocationAndOccupation);
-	
-	// Get all the still free locations in an inventory
-	UFUNCTION(BlueprintCallable, Category = "Inventory")
-	bool GetAllFreeSlots(FGuid InventoryID, TArray<FUInt82>& OutFreeSlots);
-	
-	// Check if an item with a set size can fit in a certain location in an inventory
-	UFUNCTION(BlueprintCallable, Category = "Inventory")
-	bool CanFitItem(FGuid InventoryID, const FUInt82& ItemLocation, const FUInt82& ItemOccupation);
-	
-	// Check if an inventory is valid
-	UFUNCTION(BlueprintCallable, Category = "Inventory")
-	bool IsValidInventory(FGuid InventoryID);
-	
-	// Get the detail about an item in an inventory
-	UFUNCTION(BlueprintCallable, Category = "Inventory")
-	bool GetItemInfos(FGuid InventoryID, FPrimaryAssetId ItemID, FInventoryItem& OutItem);
-	
-	// Check if moving an item within an inventory is possible and Get the possible moves locations
-	UFUNCTION(BlueprintCallable, Category = "Inventory")
-	bool GetPossibleItemMovements(FGuid InventoryID, const FInventoryItem& Item, TArray<FUInt82>& OutLocations);
-
+	bool GetInventory(uint8 Type, FInventory& OutInventory);
 	
 	// Change the Inventory container this component is pointing at 
 	UFUNCTION(BlueprintCallable, Category = "Inventory")
@@ -728,37 +731,24 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Inventory")
 	bool RemoveInventory(uint8 Type);
 	
-	// Add a new item or add up to its quantity, in an inventory. Attempt reorganisation  will try to reorganize items in this inventory to fit the new item. 
-	UFUNCTION(BlueprintCallable, Category = "Inventory")
-	bool AddItem(FGuid InventoryID, FInventoryItem Item, int Quantity = 1, bool bAttemptReorganisation = false);
-	
-	// Consume a quantity and remove the depleted item. OutConsumed is the actual quantity consumed.
-	UFUNCTION(BlueprintCallable, Category = "Inventory")
-	bool ConsumeItem(FGuid InventoryID, FPrimaryAssetId ItemID, int Quantity, int32& OutConsumedQuantity);
-	
-	// Remove an item from an inventory
-	UFUNCTION(BlueprintCallable, Category = "Inventory")
-	bool RemoveItem(FGuid InventoryID, FPrimaryAssetId ItemID);
-	
-	// Try to decay an item by a certain percentage (0-1) if it allows it (the inventory must be for decayable items)
-	UFUNCTION(BlueprintCallable, Category = "Inventory")
-	bool DecayItem(FGuid InventoryID, FPrimaryAssetId ItemID, float DecayAmount, int32 DecayItemIndex = -1);
-	
-	// Try to decay all items by a certain percentage (0-1) if they allow it (the inventory must be for decayable items)
-	UFUNCTION(BlueprintCallable, Category = "Inventory")
-	void DecayAllItems(FGuid InventoryID, float DecayAmount, int32 DecayItemIndex = -1);
-	
 	// Change the size of an inventory. Prioritize Inventory Size can remove existing item whenever the inventory shrinks and can't fit all the items anymore
 	UFUNCTION(BlueprintCallable, Category = "Inventory")
-	bool SetInventorySize(FGuid InventoryID, uint8 Columns, uint8 Rows, bool bPrioritizeInventorySize = false);
+	bool SetInventorySize(uint8 Type, uint8 Columns, uint8 Rows, bool bPrioritizeInventorySize = false);
+};
+
+UCLASS(Blueprintable, BlueprintType)
+class USaveInventory : public UObject
+{
+	GENERATED_BODY()
+public:
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Inventory")
+	int32 UserIndex = -1;
 	
-	// Move and Item within its inventory. Move Overlapping Items will try to relocate the items already at that place.
-	UFUNCTION(BlueprintCallable, Category = "Inventory")
-	bool MoveItem(FGuid InventoryID, const FPrimaryAssetId& ItemID, const FUInt82 NewLocation, bool bMoveOverlappingItems = false);
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Inventory")
+	FInventoryContainer PlayerInventory;
 	
-	// Try to combine 2 or more ingredients into a resulting item, consuming them in the process. 
-	UFUNCTION(BlueprintCallable, Category = "Inventory")
-	bool CombineItems(FGuid InventoryID, const TArray<FInventoryItemCombineIngredient>& Ingredients, const FInventoryItem& ResultItem, uint8 ResultQty = 1);
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Inventory")
+	TMap<FPrimaryAssetId, FInventoryContainer> AssetInventories;	
 };
 
 #pragma endregion
@@ -768,7 +758,7 @@ public:
  * Manage the inventories
  */
 UCLASS()
-class PULSEGAMEFRAMEWORK_API UPulseInventoryManager : public UPulseSubModuleBase
+class PULSEGAMEFRAMEWORK_API UPulseInventoryManager : public UPulseSubModuleBase, public IIPulseSavableObject, public IIPulseNetObject
 {
 	GENERATED_BODY()
 
@@ -782,16 +772,24 @@ private:
 
 	bool _bCanSave = false;
 	bool _bCanReplicate = false;
-	
+	FName _repRootTag = "Pulse.Core.Inventory";
+	FName _repContainerTag = "ContainerState";
+	FName _repInventoryTag = "InventoryState";
+	FName _repItemTag = "ItemState";
+
+	EInventoryContainerType GetContainerPtrType_Internal(const FInventoryContainer* ContainerPtr);
+	FInventoryContainer* GetContainerPtr_Internal(const FGuid& ContainerUID);
+	FInventory* GetInventoryPtr_Internal(const FGuid& ContainerUID, const uint8 InventoryType);
 	UFUNCTION()
-	void AffectBoundInventories(FInventory ChangedInventory);
+	void AffectBoundInventories(const FGuid ContainerUID, uint8 InventoryType);
+	UFUNCTION()
+	void AffectItemInBoundInventories(FGuid ContainerUID, uint8 InventoryType, FPrimaryAssetId ItemID);
 
 public:
 
 	static UPulseInventoryManager* Get(const UObject* WorldContextObject);
-	static FInventoryContainer* GetPlayerContainerPtr(const UObject* WorldContextObject, const int32 playerID);
-	static FInventoryContainer* GetAssetContainerPtr(const UObject* WorldContextObject, const FPrimaryAssetId& AssetID);
-	static FInventoryContainer* GetActorContainerPtr(const UObject* WorldContextObject, const AActor* Actor);
+	static FInventoryContainer* GetContainerPtr(const UObject* WorldContextObject, const FGuid& ContainerUID);
+	bool GetInventory(const FGuid& ContainerUID, uint8 InventoryType, FInventory& OutInventory);
 	bool GetInventories(std::function<bool(const FInventory&)> SelectFunc, TArray<FInventory*>& OutInventoryPtrs);
 
 	virtual FName GetSubModuleName() const override;
@@ -800,23 +798,167 @@ public:
 	virtual void InitializeSubModule(UPulseModuleBase* OwningModule) override;
 	virtual void DeinitializeSubModule() override;
 	virtual void TickSubModule(float DeltaTime, float CurrentTimeDilation = 1, bool bIsGamePaused = false) override;
+
+	virtual UClass* GetSaveClassType_Implementation() override;
+	virtual void OnLoadedObject_Implementation(UObject* LoadedObject) override;
+	virtual UObject* OnSaveObject_Implementation(const FString& SlotName, const int32 UserIndex, USaveMetaWrapper* SaveMetaDataWrapper, bool bAutoSave) override;
+
+	virtual bool FailedClientNetRepValueToRPCCall() override;
+	virtual void OnNetInit_Implementation() override;
+	virtual void OnNetValueReplicated_Implementation(const FName Tag, FReplicatedEntry Value, EReplicationEntryOperationType OpType) override;
 	
 public:
 
-	UPROPERTY(BlueprintAssignable, Category="Inventory")
+	UPROPERTY(BlueprintAssignable, Category="Inventory|Container")
 	FOnInventoryContainerChanged OnInventoryContainerChanged;
 
-	UPROPERTY(BlueprintAssignable, Category="Inventory")
+	UPROPERTY(BlueprintAssignable, Category="Inventory|Container")
+	FOnInventoryContainerAdded OnInventoryContainerAdded;
+
+	UPROPERTY(BlueprintAssignable, Category="Inventory|Container")
+	FOnInventoryContainerRemoved OnInventoryContainerRemoved;
+
+	UPROPERTY(BlueprintAssignable, Category="Inventory|Inventory")
 	FOnInventoryChanged OnInventoryChanged;
+
+	UPROPERTY(BlueprintAssignable, Category="Inventory|Items")
+	FOnInventoryItemChanged OnInventoryItemChanged;
 	
 	
 	// Bind a source inventory to a target.
-	UFUNCTION(BlueprintCallable, Category = "Inventory")
-	bool BindInventories(FGuid SourceInventoryID, FGuid TargetInventoryID);
+	UFUNCTION(BlueprintCallable, Category = "Inventory|Inventory")
+	bool BindInventories(const FGuid& SourceContainerUID, const uint8& SourceInventoryType, const FGuid& TargetContainerUID, const uint8& TargetInventoryType);
 	
 	
-	// Bind a source inventory to a target.
-	UFUNCTION(BlueprintCallable, Category = "Inventory")
-	bool UnbindInventories(FGuid SourceInventoryID);
+	// Remove all bound from this inventory
+	UFUNCTION(BlueprintCallable, Category = "Inventory|Inventory")
+	bool UnbindInventories(const FGuid& ContainerUID, const uint8& InventoryType);
+
+	// Item ------------------------------------------------------------------------------------------------------------------------------------------------------
 	
+	// Get the quantity of an item 
+	UFUNCTION(BlueprintPure, Category = "Inventory|Items", meta=(DisplayName = "Qty"))
+	static int32 GetItemQuantity(const FInventoryItem& Item);
+	
+	// Get the location (X,Y) the amount of additional space (Z,W) the item take in an inventory. 
+	UFUNCTION(BlueprintCallable, Category = "Inventory|Items")
+	bool GetItemSlot(const FGuid& ContainerUID, const uint8& InventoryType, const FPrimaryAssetId& ItemID, FUInt84& OutLocationAndOccupation);
+	
+	// Get all the still free locations in an inventory
+	UFUNCTION(BlueprintCallable, Category = "Inventory|Items")
+	bool GetAllFreeSlots(const FGuid& ContainerUID, const uint8& InventoryType, TArray<FUInt82>& OutFreeSlots);
+	
+	// Check if an item with a set size can fit in a certain location in an inventory
+	UFUNCTION(BlueprintCallable, Category = "Inventory|Items")
+	bool CanFitItem(const FGuid& ContainerUID, const uint8& InventoryType, const FUInt82& ItemLocation, const FUInt82& ItemOccupation);
+	
+	// Check if an inventory is valid
+	UFUNCTION(BlueprintCallable, Category = "Inventory|Items")
+	bool IsValidInventory(const FGuid& ContainerUID, const uint8& InventoryType);
+	
+	// Get the detail about an item in an inventory
+	UFUNCTION(BlueprintCallable, Category = "Inventory|Items")
+	bool GetItemInfos(const FGuid& ContainerUID, const uint8& InventoryType, const FPrimaryAssetId& ItemID, FInventoryItem& OutItem);
+	
+	// Check if moving an item within an inventory is possible and Get the possible moves locations
+	UFUNCTION(BlueprintCallable, Category = "Inventory|Items")
+	bool GetPossibleItemMovements(const FGuid& ContainerUID, const uint8& InventoryType, const FPrimaryAssetId& ItemID, TArray<FUInt82>& OutLocations);
+	
+	// Add a new item or add up to its quantity, in an inventory. Attempt reorganisation  will try to reorganize items in this inventory to fit the new item. 
+	UFUNCTION(BlueprintCallable, Category = "Inventory|Items")
+	bool AddItem(const FGuid& ContainerUID, const uint8& InventoryType, FInventoryItem Item, int Quantity = 1, bool bAttemptReorganisation = false);
+	
+	// Consume a quantity and remove the depleted item. OutConsumed is the actual quantity consumed.
+	UFUNCTION(BlueprintCallable, Category = "Inventory|Items")
+	bool ConsumeItem(const FGuid& ContainerUID, const uint8& InventoryType, FPrimaryAssetId ItemID, int Quantity, int32& OutConsumedQuantity);
+	
+	// Remove an item from an inventory
+	UFUNCTION(BlueprintCallable, Category = "Inventory|Items")
+	bool RemoveItem(const FGuid& ContainerUID, const uint8& InventoryType, FPrimaryAssetId ItemID);
+	
+	// Try to decay an item by a certain percentage (0-1) if it allows it (the inventory must be for decayable items)
+	UFUNCTION(BlueprintCallable, Category = "Inventory|Items")
+	bool DecayItem(const FGuid& ContainerUID, const uint8& InventoryType, FPrimaryAssetId ItemID, float DecayAmount, int32 DecayItemIndex = -1);
+	
+	// Try to decay all items by a certain percentage (0-1) if they allow it (the inventory must be for decayable items)
+	UFUNCTION(BlueprintCallable, Category = "Inventory|Items")
+	void DecayAllItems(const FGuid& ContainerUID, const uint8& InventoryType, float DecayAmount, int32 DecayItemIndex = -1);
+	
+	// Move and Item within its inventory. Move Overlapping Items will try to relocate the items already at that place.
+	UFUNCTION(BlueprintCallable, Category = "Inventory|Items")
+	bool MoveItem(const FGuid& ContainerUID, const uint8& InventoryType, const FPrimaryAssetId& ItemID, const FUInt82 NewLocation, bool bMoveOverlappingItems = false);
+	
+	// Try to combine 2 or more ingredients into a resulting item, consuming them in the process. 
+	UFUNCTION(BlueprintCallable, Category = "Inventory|Items")
+	bool CombineItems(const FGuid& ContainerUID, const uint8& InventoryType, const TArray<FInventoryItemCombineIngredient>& Ingredients, const FInventoryItem& ResultItem, uint8 ResultQty = 1);
+
+	void OnItemReplication(const FGuid& ContainerUID, const uint8& InventoryType, const FPrimaryAssetId& ItemID,FReplicatedEntry Value, EReplicationEntryOperationType OpType);
+	FReplicatedEntry MakeItemRep(const FGuid& ContainerUID, const uint8& InventoryType, const FPrimaryAssetId& ItemID);
+
+	// Inventory ------------------------------------------------------------------------------------------------------------------------------------------------------
+	
+	// Add a new inventory by type.
+	UFUNCTION(BlueprintCallable, Category = "Inventory|Inventory")
+	bool AddInventory(const FGuid& ContainerUID, TSubclassOf<UBasePulseBaseItemAsset> ItemType, uint8 Type, uint8 Columns, uint8 Rows = 1, bool bDecayableItemInventory = false);
+	
+	// Add a new inventory by type.
+	UFUNCTION(BlueprintCallable, Category = "Inventory|Inventory")
+	bool RemoveInventory(const FGuid& ContainerUID, const uint8& InventoryType);
+	
+	// Get an inventory properties
+	UFUNCTION(BlueprintCallable, Category = "Inventory|Items")
+	bool GetInventoryInfos(const FGuid& ContainerUID, const uint8& InventoryType, FInventory& OutInventory);
+	
+	// Change the size of an inventory. Prioritize Inventory Size can remove existing item whenever the inventory shrinks and can't fit all the items anymore
+	UFUNCTION(BlueprintCallable, Category = "Inventory|Inventory")
+	bool SetInventorySize(const FGuid& ContainerUID, const uint8& InventoryType, uint8 Columns, uint8 Rows, bool bPrioritizeInventorySize = false);
+
+	void OnInventoryReplication(const FGuid& ContainerUID, const uint8& InventoryType, FReplicatedEntry Value, EReplicationEntryOperationType OpType);
+	FReplicatedEntry MakeInventoryRep(const FGuid& ContainerUID, const uint8& InventoryType);
+
+	
+	// Container ------------------------------------------------------------------------------------------------------------------------------------------------------
+
+	
+	// Get a container UID. priority is given by: localPlayerIndex(>=0)->ObjectID(Valid)->ObjectPtr(not Null)
+	UFUNCTION(BlueprintCallable, Category = "Inventory|Container")
+	bool GetContainerUID(EInventoryContainerType ContainerType, FGuid& OutContainerUID, int32 LocalPlayerIndex = -1, FPrimaryAssetId ObjectID = FPrimaryAssetId(), AActor* ObjectPtr = nullptr);
+	AActor* GetContainerActor(const FGuid& ContainerUID);
+	
+	// Get all player Ids inventories container UIDs
+	UFUNCTION(BlueprintCallable, Category = "Inventory|Container")
+	bool GetAllPlayerIDInventories(TArray<int32>& OutPlayerIDs, TArray<FGuid>& OutContainerUIDs);
+	
+	// Get all Asset Ids inventories container UIDs
+	UFUNCTION(BlueprintCallable, Category = "Inventory|Container")
+	bool GetAllAssetIDInventories(TArray<FPrimaryAssetId>& OutAssetIDs, TArray<FGuid>& OutContainerUIDs);
+	
+	// Get all Actors Ids inventories container UIDs
+	UFUNCTION(BlueprintCallable, Category = "Inventory|Container")
+	bool GetAllActorInventories(TArray<AActor*>& OutActors, TArray<FGuid>& OutContainerUIDs);
+	
+	// Add a new Inventory container
+	UFUNCTION(BlueprintCallable, Category = "Inventory|Container", meta=(AdvancedDisplay = 1))
+	bool CreateNewContainer(const EInventoryContainerType& OfType, APlayerController* PlayerController = nullptr, FPrimaryAssetId AssetID = FPrimaryAssetId(), AActor* ObjectPtr = nullptr); 
+	bool AddNewPlayerContainer(const FGuid& ContainerUID, const int32 PlayerID);
+	bool AddNewAssetContainer(const FGuid& ContainerUID, const FPrimaryAssetId& AssetID);
+	bool AddNewActorContainer(const FGuid& ContainerUID, AActor* Actor);
+	
+	// Get an inventory properties
+	UFUNCTION(BlueprintCallable, Category = "Inventory|Items")
+	bool GetContainerInfos(const FGuid& ContainerUID, FInventoryContainer& OutContainer);
+	
+	// Remove a container
+	UFUNCTION(BlueprintCallable, Category = "Inventory|Container")
+	bool RemoveContainer(const FGuid& ContainerUID);
+	bool RemovePlayerContainers(const int32 PlayerID);
+	bool RemoveAssetContainers(const FPrimaryAssetId& AssetID);
+	bool RemoveActorContainers(AActor* Actor);
+	
+	// Remove a container
+	UFUNCTION(BlueprintCallable, Category = "Inventory|Container")
+	void RemoveAllContainerOfType(const EInventoryContainerType& OfType);
+
+	static FReplicatedEntry MakeContainerRep(int32 PlayerId = -1, const FPrimaryAssetId& ObjectID = FPrimaryAssetId(), AActor* ObjectPtr = nullptr);	
+	void OnContainerReplication(const FGuid& ContainerUID, FReplicatedEntry Value, EReplicationEntryOperationType OpType);
 };

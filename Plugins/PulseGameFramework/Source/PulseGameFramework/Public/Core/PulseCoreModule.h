@@ -8,6 +8,7 @@
 #include "PulseCoreModule.generated.h"
 
 
+class UPulseInventoryManager;
 class UPulseTimeOfDayManager;
 class UPulseSaveManager;
 class UOperationModifierSubModule;
@@ -159,4 +160,7 @@ public:
 
 	UFUNCTION(BlueprintPure, Category = "Pulse Core")
 	UPulseNetManager* GetNetManager();
+
+	UFUNCTION(BlueprintPure, Category = "Pulse Core")
+	UPulseInventoryManager* GetInventoryManager();
 };

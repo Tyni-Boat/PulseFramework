@@ -91,3 +91,8 @@ UPulseNetManager* UPulseCoreModule::GetNetManager()
 {
 	return GetSubModule<UPulseNetManager>();
 }
+
+UPulseInventoryManager* UPulseCoreModule::GetInventoryManager()
+{
+	return GetSubModule<UPulseInventoryManager>();
+}

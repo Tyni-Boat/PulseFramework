@@ -53,8 +53,9 @@ bool UPulseSystemLibrary::TryGetCameraRelativeInput(const UObject* WorldContext,
 	return true;
 }
 
-void UPulseSystemLibrary::RotateComponentByInputs(USceneComponent*& Component, const FVector2D Inputs, FHitResult& SweepResult, const FVector& YawAxis, const FVector2D& TiltLimits, bool bInvertX,
-	bool bInvertY, bool bUseSweep, ETeleportType TeleportType)
+void UPulseSystemLibrary::RotateComponentByInputs(USceneComponent*& Component, const FVector2D Inputs, FHitResult& SweepResult, const FVector& YawAxis, const FVector2D& TiltLimits,
+                                                  bool bInvertX,
+                                                  bool bInvertY, bool bUseSweep, ETeleportType TeleportType)
 {
 	if (!Component)
 		return;
@@ -62,11 +63,11 @@ void UPulseSystemLibrary::RotateComponentByInputs(USceneComponent*& Component, c
 	if (!normal.Normalize())
 		normal = FVector(0, 0, 1);
 	const float currentTilt = Component->GetForwardVector() | normal;
-	const float tilt = FMath::Clamp(currentTilt + Inputs.Y * (bInvertY? -1 : 1), TiltLimits.X, TiltLimits.Y);
+	const float tilt = FMath::Clamp(currentTilt + Inputs.Y * (bInvertY ? -1 : 1), TiltLimits.X, TiltLimits.Y);
 	const float tiltDiff = tilt - currentTilt;
 	FVector planarVector = FVector::VectorPlaneProject(Component->GetForwardVector(), normal).GetSafeNormal();
 	FQuat planarOrientation = UKismetMathLibrary::MakeRotFromXZ(planarVector, normal).Quaternion();
-	planarOrientation *= FQuat(normal, FMath::DegreesToRadians(Inputs.X * (bInvertX? -1 : 1)));
+	planarOrientation *= FQuat(normal, FMath::DegreesToRadians(Inputs.X * (bInvertX ? -1 : 1)));
 	planarOrientation.Normalize();
 	FVector tiltAxis = FVector::CrossProduct(planarOrientation.GetForwardVector(), normal);
 	planarOrientation *= FQuat(normal, FMath::DegreesToRadians(tiltDiff));
@@ -74,8 +75,6 @@ void UPulseSystemLibrary::RotateComponentByInputs(USceneComponent*& Component, c
 
 	Component->SetWorldRotation(planarOrientation, bUseSweep, &SweepResult, TeleportType);
 }
-
-
 
 
 void UPulseSystemLibrary::SimulateKey(const FKey Key, EInputEvent Event)
@@ -111,10 +110,7 @@ void UPulseSystemLibrary::SimulateKey(const FKey Key, EInputEvent Event)
 	default:
 		break;
 	}
-
 }
-
-
 
 
 float UPulseSystemLibrary::GetMontageFirstNotifyTriggerTime(const UAnimMontage* montage, TSubclassOf<UAnimNotify> notifyClass)
@@ -165,7 +161,6 @@ FVector2D UPulseSystemLibrary::GetMontageStartTimeFromSpeed(const FVector& Locat
 }
 
 
-
 bool UPulseSystemLibrary::HasChildTag(const FGameplayTagContainer& Container, FGameplayTag Tag)
 {
 	const FString namedTag = Tag.GetTagName().ToString();
@@ -177,7 +172,8 @@ bool UPulseSystemLibrary::HasChildTag(const FGameplayTagContainer& Container, FG
 	return false;
 }
 
-bool UPulseSystemLibrary::RemoveChildTags(UPARAM(ref)FGameplayTagContainer& Container, FGameplayTag Tag)
+bool UPulseSystemLibrary::RemoveChildTags(UPARAM(ref)
+                                          FGameplayTagContainer& Container, FGameplayTag Tag)
 {
 	const FString namedTag = Tag.GetTagName().ToString();
 	bool result = false;
@@ -193,7 +189,8 @@ bool UPulseSystemLibrary::RemoveChildTags(UPARAM(ref)FGameplayTagContainer& Cont
 	return result;
 }
 
-bool UPulseSystemLibrary::AddChildTags(UPARAM(ref)FGameplayTagContainer& Container, FGameplayTag Tag)
+bool UPulseSystemLibrary::AddChildTags(UPARAM(ref)
+                                       FGameplayTagContainer& Container, FGameplayTag Tag)
 {
 	const FString namedTag = Tag.GetTagName().ToString();
 	bool result = false;
@@ -208,7 +205,29 @@ bool UPulseSystemLibrary::AddChildTags(UPARAM(ref)FGameplayTagContainer& Contain
 	return result;
 }
 
+FName UPulseSystemLibrary::ConstructNametag(TArray<FName> TagParts)
+{
+	FString result;
+	for (int i = 0; i < TagParts.Num(); i++)
+		result += FString::Printf(TEXT("%s%s"), *TagParts[i].ToString(), i == TagParts.Num() - 1 ? TEXT("") : TEXT("."));
+	return FName(result);
+}
 
+bool UPulseSystemLibrary::ExtractNametagParts(FName Tag, TArray<FName>& OutTagParts)
+{
+	OutTagParts.Empty();
+	FString strTag = Tag.ToString();
+	strTag.RemoveSpacesInline();
+	if (strTag.IsEmpty())
+		return false;
+	FString right = "";
+	while (strTag.Split(".", &strTag, &right, ESearchCase::IgnoreCase, ESearchDir::FromEnd))
+	{
+		OutTagParts.Insert(FName(right), 0);
+	}
+	OutTagParts.Insert(FName(strTag), 0);
+	return OutTagParts.Num() > 0;
+}
 
 
 bool UPulseSystemLibrary::EnableActor(AActor* Actor, bool Enable)
@@ -278,7 +297,7 @@ bool UPulseSystemLibrary::AddComponentAtRuntime(AActor* Actor, UActorComponent* 
 	}
 	// Initialize if needed
 	//Component->InitializeComponent();
-	
+
 	// Activate the component if it is not already active
 	Component->SetActive(true);
 
@@ -319,8 +338,6 @@ bool UPulseSystemLibrary::RemoveComponentAtRuntime(AActor* Actor, UActorComponen
 }
 
 
-
-
 bool UPulseSystemLibrary::SerializeObjectToBytes(UObject* object, TArray<uint8>& outBytes)
 {
 	if (!object)
@@ -340,4 +357,3 @@ bool UPulseSystemLibrary::DeserializeObjectFromBytes(const TArray<uint8>& bytes,
 	OutObject->Serialize(Ar);
 	return true;
 }
-

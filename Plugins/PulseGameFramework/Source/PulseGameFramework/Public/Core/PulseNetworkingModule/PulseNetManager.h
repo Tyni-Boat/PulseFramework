@@ -18,6 +18,15 @@ enum class ENetworkAuthorizationState: uint8
 	GameplayValues = 1 << 1 UMETA(DisplayName = "Remote Procedure Call"),
 };
 
+UENUM(BlueprintType)
+enum class ENetworkOperationResult: uint8
+{
+	UnknowError = 0,
+	MissingAuthorisation = 1,
+	NoAuthority = 2,
+	Success = 3,
+};
+
 ENUM_CLASS_FLAGS(ENetworkAuthorizationState);
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnNetAuthorizationStateChanged, ENetworkAuthorizationState, LastValue, ENetworkAuthorizationState, NewValue);
@@ -47,6 +56,7 @@ private:
 public:
 	ENetworkAuthorizationState GetNetAuth() const;
 	ENetMode GetNetMode() const;
+	ENetRole GetNetRole() const;
 	bool HasAuthority() const;
 	static bool SetNetActorMgr(APulseNetMgrActor* NetComp, UPulseNetManager*& NetManager);
 	void HandleNetHistory();
@@ -98,14 +108,14 @@ public:
 	static bool TryGetReplicatedValues(const UObject* WorldContextObject, FName Tag, TArray<FReplicatedEntry>& OutValues, UObject* ForObj = nullptr);
 
 	UFUNCTION(BlueprintCallable, Category = "PulseNetwork", meta = (WorldContext = "WorldContextObject", AdvancedDisplay = 2))
-	static bool ReplicateValue(const UObject* WorldContextObject, FName Tag, FReplicatedEntry Value);
-	bool ReplicateValue_Internal(FName Tag, FReplicatedEntry Value, bool fromHistory = false);
+	static ENetworkOperationResult ReplicateValue(const UObject* WorldContextObject, FName Tag, FReplicatedEntry Value);
+	ENetworkOperationResult ReplicateValue_Internal(FName Tag, FReplicatedEntry Value, bool fromHistory = false);
 
 	UFUNCTION(BlueprintCallable, Category = "PulseNetwork", meta = (WorldContext = "WorldContextObject", AdvancedDisplay = 2))
-	static bool RemoveReplicatedValue(const UObject* WorldContextObject, FName Tag, UObject* ForObj = nullptr);
-	bool RemoveReplicatedValue_Internal(FName Tag, UObject* ForObj = nullptr, bool fromHistory = false);
+	static ENetworkOperationResult RemoveReplicatedValue(const UObject* WorldContextObject, FName Tag, UObject* ForObj = nullptr);
+	ENetworkOperationResult RemoveReplicatedValue_Internal(FName Tag, UObject* ForObj = nullptr, bool fromHistory = false);
 
 	UFUNCTION(BlueprintCallable, Category = "PulseNetwork", meta = (WorldContext = "WorldContextObject", AdvancedDisplay = 2))
-	static bool MakeRPCall(const UObject* WorldContextObject, FName Tag, FReplicatedEntry Value, bool Reliable = false);
-	bool MakeRPCall_Internal(FName Tag, FReplicatedEntry Value, bool Reliable = false, bool fromHistory = false);
+	static ENetworkOperationResult MakeRPCall(const UObject* WorldContextObject, FName Tag, FReplicatedEntry Value, bool Reliable = false);
+	ENetworkOperationResult MakeRPCall_Internal(FName Tag, FReplicatedEntry Value, bool Reliable = false, bool fromHistory = false);
 };
