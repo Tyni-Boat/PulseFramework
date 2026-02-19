@@ -498,12 +498,9 @@ bool UPulseNetManager::GetDisconnectedPlayerIds(TArray<int32>& OutPlayerIDs) con
 	return _disconnectedPlayers.GetKeys(OutPlayerIDs) > 0;
 }
 
-
-
-
-
-UPulseNetEventListener::UPulseNetEventListener()
+void UPulseNetEventListener::PostInitProperties()
 {
+	Super::PostInitProperties();
 	if (auto pulseNetSubSystem = UPulseNetManager::Get(this))
 	{
 		pulseNetSubSystem->OnNetInit.AddDynamic(this, &UPulseNetEventListener::OnNetInit_Func);
@@ -511,8 +508,9 @@ UPulseNetEventListener::UPulseNetEventListener()
 	}
 }
 
-UPulseNetEventListener::~UPulseNetEventListener()
+void UPulseNetEventListener::BeginDestroy()
 {
+	Super::BeginDestroy();
 	if (auto pulseNetSubSystem = UPulseNetManager::Get(this))
 	{
 		pulseNetSubSystem->OnNetInit.RemoveDynamic(this, &UPulseNetEventListener::OnNetInit_Func);

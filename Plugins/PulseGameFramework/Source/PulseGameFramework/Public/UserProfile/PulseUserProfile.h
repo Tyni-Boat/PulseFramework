@@ -383,8 +383,8 @@ class UPulseUserProfileEventListener : public UObject
 
 public:
 
-	UPulseUserProfileEventListener();
-	virtual ~UPulseUserProfileEventListener() override;
+	virtual void PostInitProperties() override;
+	virtual void BeginDestroy() override;
 
 protected:
 

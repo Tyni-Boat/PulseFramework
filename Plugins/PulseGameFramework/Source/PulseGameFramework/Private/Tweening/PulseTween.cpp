@@ -658,11 +658,11 @@ FGuid UPulseTween::Tween(const UObject* Owner, const FPulseTweenInstance& TweenI
 
 
 
-UPulseTweenEventListener::UPulseTweenEventListener()
+void UPulseTweenEventListener::PostInitProperties()
 {
-	bool isSupportedWorld = false;
-	auto world = GetWorldChecked(isSupportedWorld);
-	if (!world || !isSupportedWorld)
+	Super::PostInitProperties();
+	auto world = GetWorld();
+	if (!world)
 		return;
 	if (auto tweenSubSystem = world->GetSubsystem<UPulseTween>())
 	{
@@ -679,11 +679,11 @@ UPulseTweenEventListener::UPulseTweenEventListener()
 	}
 }
 
-UPulseTweenEventListener::~UPulseTweenEventListener()
+void UPulseTweenEventListener::BeginDestroy()
 {
-	bool isSupportedWorld = false;
-	auto world = GetWorldChecked(isSupportedWorld);
-	if (!world || !isSupportedWorld)
+	Super::BeginDestroy();
+	auto world = GetWorld();
+	if (!world)
 		return;
 	if (auto tweenSubSystem = world->GetSubsystem<UPulseTween>())
 	{

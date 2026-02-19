@@ -979,6 +979,8 @@ bool UPulseDownloader::GetFileNameFromURL(const FString& Url, FString& OutFilena
 
 UPulseDownloader* UPulseDownloader::Get()
 {
+	if (!GEngine)
+		return nullptr;
 	if (FWorldContext* WorldContext = GEngine->GetWorldContextFromGameViewport(GEngine->GameViewport))
 	{
 		UGameInstance* GameInstance = WorldContext->OwningGameInstance;
@@ -995,10 +997,9 @@ FString UPulseDownloader::ToString(const FDownloadIdentifier& Identifier)
 	return Identifier.ToString();
 }
 
-
-
-UPulseDownloadEventListener::UPulseDownloadEventListener()
+void UPulseDownloadEventListener::PostInitProperties()
 {
+	Super::PostInitProperties();
 	if (auto downloadSubSystem = UPulseDownloader::Get())
 	{
 		downloadSubSystem->OnDownloadComplete.AddDynamic(this, &UPulseDownloadEventListener::OnDownloadComplete_Func);
@@ -1011,8 +1012,9 @@ UPulseDownloadEventListener::UPulseDownloadEventListener()
 	}
 }
 
-UPulseDownloadEventListener::~UPulseDownloadEventListener()
+void UPulseDownloadEventListener::BeginDestroy()
 {
+	Super::BeginDestroy();
 	if (auto downloadSubSystem = UPulseDownloader::Get())
 	{
 		downloadSubSystem->OnDownloadComplete.RemoveDynamic(this, &UPulseDownloadEventListener::OnDownloadComplete_Func);

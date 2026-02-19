@@ -199,8 +199,8 @@ class UPulseDownloadEventListener : public UObject
 	
 	public:
 	
-	UPulseDownloadEventListener();
-	virtual ~UPulseDownloadEventListener() override;
+	virtual void PostInitProperties() override;
+	virtual void BeginDestroy() override;
 
 protected:
 

@@ -165,6 +165,8 @@ TArray<FString> UBaseUserProfileProvider::TryGetQueryParamsFromToken_Implementat
 
 UPulseUserProfile* UPulseUserProfile::Get()
 {
+	if (!GEngine)
+		return nullptr;
 	return GEngine->GetEngineSubsystem<UPulseUserProfile>();
 }
 
@@ -308,6 +310,7 @@ void UPulseUserProfile::Initialize(FSubsystemCollectionBase& Collection)
 		LoadUserProfile_Internal();
 	}
 }
+
 
 EUserProfileProcessStatus UPulseUserProfile::GetSystemStatus() const
 {
@@ -610,8 +613,9 @@ bool UPulseUserProfile::GetUserLoginStatus_Internal(const FString& LocalUserID, 
 
 
 
-UPulseUserProfileEventListener::UPulseUserProfileEventListener()
+void UPulseUserProfileEventListener::PostInitProperties()
 {
+	Super::PostInitProperties();
 	const auto userSubSystem = UPulseUserProfile::Get();
 	if (!userSubSystem)
 		return;
@@ -630,8 +634,9 @@ UPulseUserProfileEventListener::UPulseUserProfileEventListener()
 	BindCurrentProvider();
 }
 
-UPulseUserProfileEventListener::~UPulseUserProfileEventListener()
+void UPulseUserProfileEventListener::BeginDestroy()
 {
+	Super::BeginDestroy();
 	UnBindCurrentProvider();
 	const auto userSubSystem = UPulseUserProfile::Get();
 	if (!userSubSystem)

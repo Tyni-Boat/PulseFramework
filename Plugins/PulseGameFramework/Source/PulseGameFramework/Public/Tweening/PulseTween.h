@@ -190,8 +190,8 @@ class UPulseTweenEventListener : public UObject
 	GENERATED_BODY()
 
 public:
-	UPulseTweenEventListener();
-	virtual ~UPulseTweenEventListener() override;
+	virtual void PostInitProperties() override;
+	virtual void BeginDestroy() override;
 
 protected:
 	UFUNCTION()
