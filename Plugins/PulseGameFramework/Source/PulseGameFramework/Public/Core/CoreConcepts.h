@@ -5,29 +5,12 @@
 #include <type_traits>
 
 
-class UPulseModuleBase;
-class UPulseSubModuleBase;
-
+// Don't use std:: concepts, since those C++20 features are not supported on mobile 
 namespace pulseCore::concepts
 {
-	template<typename T>
-	concept IsNumber = std::integral<T> || std::floating_point<T>;
-	template <typename T, typename U = T>
-	concept Addable = requires(T a, U b) { { a + b } -> std::common_with<T>; };
-	template <typename T, typename U = T>
-	concept Multiplicable = requires(T a, U b) { { a * b } -> std::common_with<T>; };
-	template <typename T, typename U = T>
-	concept Divisible = requires(T a, U b) { { a / b } -> std::common_with<T>; };
 	template <typename T>
-	concept IsAModuleConfig = std::is_base_of_v<UDeveloperSettings, T>;
-	template <typename T>
-	concept IsUObject = std::is_base_of_v<UObject, T>;
-	template <typename T>
-	concept IsSubModule = std::derived_from<T, UPulseSubModuleBase>;
-	template <typename T>
-	concept IsModule = std::derived_from<T, UPulseModuleBase>;
+	concept IsUStruct = requires { TBaseStructure<T>::Get(); };
 	template <typename T, typename Q>
-	concept IsSubclassOf = requires(Q b) { std::derived_from<Q, UClass> && T::StaticClass() == b; };
-	template <typename T, typename Q, typename U, typename V>
-	concept AreSubclassesOf = requires(Q b, V c) { std::derived_from<Q, UClass> && T::StaticClass() == b && std::derived_from<V, UClass> && U::StaticClass() == c; };
+	concept IsDerivedFrom = requires { __is_base_of(Q, T)
+	&& __is_convertible_to(const volatile T*, const volatile Q*); };
 }

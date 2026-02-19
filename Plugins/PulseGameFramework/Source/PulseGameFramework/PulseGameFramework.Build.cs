@@ -31,6 +31,12 @@ public class PulseGameFramework : ModuleRules
 				"GameplayTags",
 				"GameplayAbilities",
 				"DeveloperSettings",
+				"GameFeatures",
+				"PakFile",
+				"HTTP",
+				// Required for JSON serialization and parsing
+				"Json",
+				"JsonUtilities",
 				// ... add other public dependencies that you statically link with here ...
 			}
 			);
@@ -44,6 +50,7 @@ public class PulseGameFramework : ModuleRules
 				"NetCore",
 				"PhysicsCore",
 				"SlateCore",
+				"UMG",
 				"ApplicationCore",
 				"InputCore",
 				// ... add private dependencies that you statically link with here ...	

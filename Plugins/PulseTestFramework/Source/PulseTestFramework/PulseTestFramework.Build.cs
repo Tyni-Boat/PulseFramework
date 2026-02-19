@@ -26,6 +26,8 @@ public class PulseTestFramework : ModuleRules
 			new string[]
 			{
 				"Core", "PulseGameFramework",
+				"Json",
+				"JsonUtilities"
 				// ... add other public dependencies that you statically link with here ...
 			}
 			);

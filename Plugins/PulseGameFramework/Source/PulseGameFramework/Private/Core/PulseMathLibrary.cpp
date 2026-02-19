@@ -3,6 +3,7 @@
 
 #include "Core/PulseMathLibrary.h"
 
+#include "Kismet/KismetMathLibrary.h"
 #include "Materials/MaterialExpressionChannelMaskParameterColor.h"
 
 float UPulseMathLibrary::AlphaByCurve(const float InAlpha, EAlphaBlendOption CurveType, UCurveFloat* FloatCurve)
@@ -32,4 +33,18 @@ FTransform UPulseMathLibrary::InverseTransformByTransform(const FTransform& Pivo
 bool UPulseMathLibrary::IsTransformValid(const FTransform& Transform)
 {
 	return Transform.IsValid() && Transform.GetScale3D().SquaredLength() > 0;
+}
+
+void UPulseMathLibrary::MakeOrthoBasis(const FVector& vector, FVector& OutRight, FVector& OutUp, float vectorRollInDegrees)
+{
+	OutRight = FVector::Zero();
+	OutUp = FVector::Zero();
+	FVector fwd = vector;
+	if (!fwd.Normalize())
+		return;
+	auto rot = UKismetMathLibrary::MakeRotFromX(fwd).Quaternion();
+	rot = rot.Inverse() * FQuat(rot.GetUpVector(), FMath::DegreesToRadians(vectorRollInDegrees));
+	OutRight = rot.GetRightVector();
+	rot = UKismetMathLibrary::MakeRotFromXY(fwd, OutRight).Quaternion();
+	OutUp = rot.GetUpVector();
 }

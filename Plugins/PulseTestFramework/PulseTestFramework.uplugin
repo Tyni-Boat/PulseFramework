@@ -26,6 +26,14 @@
 		{
 			"Name": "PulseGameFramework",
 			"Enabled": true
+		},
+		{
+			"Name": "CommonUI",
+			"Enabled": true
+		},
+		{
+			"Name": "PulseUILibrary",
+			"Enabled": true
 		}
 	]
 }
