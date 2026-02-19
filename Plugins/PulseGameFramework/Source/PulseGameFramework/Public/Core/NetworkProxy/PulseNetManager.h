@@ -116,3 +116,29 @@ protected:
 	bool SetNewMasterNetProxy_Internal(APulseNetProxy* NetProxy);
 	bool GetDisconnectedPlayerIds(TArray<int32>& OutPlayerIDs) const;
 };
+
+/**
+ * @brief Utility object to easily handle pulse Net Manager events in blueprint.
+ */
+UCLASS(NotBlueprintable, BlueprintType)
+class UPulseNetEventListener : public UObject
+{
+	GENERATED_BODY()
+
+public:
+	UPulseNetEventListener();
+	virtual ~UPulseNetEventListener() override;
+
+protected:
+	UFUNCTION() void OnNetReplication_Func(FName Tag, FPulseNetReplicatedData Value, EReplicationEntryOperationType Operation);
+	UFUNCTION() void OnNetInit_Func();
+
+public:
+	
+	UPROPERTY(BlueprintAssignable, Category = "PulseCore|Network")
+	FOnNetReplication OnNetReplication;
+
+	UPROPERTY(BlueprintAssignable, Category = "PulseCore|Network")
+	FOnPulseNetInit OnNetInit;
+	
+};
