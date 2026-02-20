@@ -147,10 +147,13 @@ public:
 };
 
 DECLARE_MULTICAST_DELEGATE_ThreeParams(FOnNetReplication_Raw, FName Tag, FPulseNetReplicatedData Value, EReplicationEntryOperationType Operation)
+DECLARE_MULTICAST_DELEGATE_ThreeParams(FOnNetConnexionEvent_Raw, int32 PlayerID, bool bIsDisconnection, bool bIsLocalPlayer);
 DECLARE_MULTICAST_DELEGATE(FOnPulseNetInit_Raw);
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnPulseNetInit);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FOnNetReplication, FName, Tag, FPulseNetReplicatedData, Value, EReplicationEntryOperationType, Operation);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FOnNetConnexionEvent, int32, PlayerID, bool, bIsDisconnection, bool, bIsLocalPlayer);
+
 
 class UPulseNetManager;
 

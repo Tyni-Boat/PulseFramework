@@ -117,14 +117,29 @@ int32 UPulseNetManager::GetNetLocalID() const
 	return _masterLocalID_NetProxyID.Y;
 }
 
-int32 UPulseNetManager::GetControllerNetLocalID(APlayerController* Controller) const
+int32 UPulseNetManager::GetControllerNetLocalID(AController* Controller) const
 {
 	if (!Controller)
 		return -1;
 	const auto playerState = Controller->GetPlayerState<APlayerState>();
 	if (!playerState)
 		return -1;
-	return playerState->GetPlayerId();
+	const int32 playerID = playerState->GetPlayerId();
+	if (_localNetProxies.Contains(playerID))
+		return _localNetProxies[playerID]->GetPlayerID();
+	if (_remoteNetProxies.Contains(playerID))
+		return _remoteNetProxies[playerID]->GetPlayerID();
+	return -1;
+}
+
+int32 UPulseNetManager::GetPawnNetLocalID(APawn* Pawn) const
+{
+	if (!Pawn)
+		return -1;
+	auto controller  = Pawn->GetController();
+	if (!controller)
+		return -1;
+	return GetControllerNetLocalID(controller);
 }
 
 bool UPulseNetManager::QueryNetValue(const TArray<FName>& Tags, FPulseNetReplicatedData& OutValue, bool bIncludeChildValues, TArray<FPulseNetReplicatedData>& OutChildValues) const
@@ -347,8 +362,10 @@ bool UPulseNetManager::AddNetProxy_Internal(const int32 PlayerID, APulseNetProxy
 	if (!NetProxy)
 		return false;
 	auto debugStr = FString::Printf(TEXT(""));
+	bool isLocal = false;
 	if (NetProxy->GetLocalPlayerController())
 	{
+		isLocal = true;
 		if (_localNetProxies.Contains(PlayerID))
 		{
 			if (_netMode < NM_Client && _disconnectedPlayers.Contains(PlayerID))
@@ -386,6 +403,8 @@ bool UPulseNetManager::AddNetProxy_Internal(const int32 PlayerID, APulseNetProxy
 			TEXT("Pulse Network proxy %s Registered To Pulse Network Manager, Player ID: %d as Remote Proxy"), *NetProxy->GetName(), NetProxy->GetPlayerID());
 		UE_LOG(LogPulseNetProxy, Log, TEXT("%s"), *UPulseDebugLibrary::DebugNetLog(this, debugStr));
 	}
+	OnNetPlayerConnexion_Raw.Broadcast(PlayerID, false, isLocal);
+	OnNetPlayerConnexion.Broadcast(PlayerID, false, isLocal);
 	return true;
 }
 
@@ -393,6 +412,7 @@ bool UPulseNetManager::RemoveNetProxy_Internal(const int32 PlayerID)
 {
 	const auto netMode = GetWorld()->GetNetMode();
 	bool found = false;
+	bool isLocal = false;
 	if (_remoteNetProxies.Contains(PlayerID))
 	{
 		found = true;
@@ -412,6 +432,7 @@ bool UPulseNetManager::RemoveNetProxy_Internal(const int32 PlayerID)
 	if (_localNetProxies.Contains(PlayerID))
 	{
 		found = true;
+		isLocal = true;
 		if (netMode < NM_Client)
 		{
 			if (_localNetProxies[PlayerID].Get())
@@ -433,6 +454,7 @@ bool UPulseNetManager::RemoveNetProxy_Internal(const int32 PlayerID)
 				if (SetNewMasterNetProxy_Internal(Pair.Value))
 				{
 					hadSetNewMasterNetProxy = true;
+					break;
 				}
 			}
 			if (!hadSetNewMasterNetProxy)
@@ -445,7 +467,9 @@ bool UPulseNetManager::RemoveNetProxy_Internal(const int32 PlayerID)
 	{
 		const auto debugStr = FString::Printf(
 			TEXT("Removed Network proxy Player ID: %d"), PlayerID);
-		UE_LOG(LogPulseNetProxy, Log, TEXT("%s"), *UPulseDebugLibrary::DebugNetLog(this, debugStr));
+		UE_LOG(LogPulseNetProxy, Log, TEXT("%s"), *UPulseDebugLibrary::DebugNetLog(this, debugStr));		
+		OnNetPlayerConnexion_Raw.Broadcast(PlayerID, true, isLocal);
+		OnNetPlayerConnexion.Broadcast(PlayerID, true, isLocal);
 	}
 	return found;
 }
@@ -498,6 +522,10 @@ bool UPulseNetManager::GetDisconnectedPlayerIds(TArray<int32>& OutPlayerIDs) con
 	return _disconnectedPlayers.GetKeys(OutPlayerIDs) > 0;
 }
 
+
+
+
+
 void UPulseNetEventListener::PostInitProperties()
 {
 	Super::PostInitProperties();
@@ -505,6 +533,7 @@ void UPulseNetEventListener::PostInitProperties()
 	{
 		pulseNetSubSystem->OnNetInit.AddDynamic(this, &UPulseNetEventListener::OnNetInit_Func);
 		pulseNetSubSystem->OnNetReplication.AddDynamic(this, &UPulseNetEventListener::OnNetReplication_Func);
+		pulseNetSubSystem->OnNetPlayerConnexion.AddDynamic(this, &UPulseNetEventListener::OnNetPlayerConnexion_Func);
 	}
 }
 
@@ -515,7 +544,13 @@ void UPulseNetEventListener::BeginDestroy()
 	{
 		pulseNetSubSystem->OnNetInit.RemoveDynamic(this, &UPulseNetEventListener::OnNetInit_Func);
 		pulseNetSubSystem->OnNetReplication.RemoveDynamic(this, &UPulseNetEventListener::OnNetReplication_Func);
+		pulseNetSubSystem->OnNetPlayerConnexion.RemoveDynamic(this, &UPulseNetEventListener::OnNetPlayerConnexion_Func);
 	}
+}
+
+void UPulseNetEventListener::OnNetPlayerConnexion_Func(int32 PlayerID, bool bIsDisconnection, bool bIsLocalPlayer)
+{
+	OnNetPlayerConnexion.Broadcast(PlayerID, bIsDisconnection, bIsLocalPlayer);
 }
 
 void UPulseNetEventListener::OnNetReplication_Func(FName Tag, FPulseNetReplicatedData Value, EReplicationEntryOperationType Operation)

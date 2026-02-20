@@ -27,6 +27,8 @@ class PULSEGAMEFRAMEWORK_API IIPulseNetProxy
 protected:
 	FDelegateHandle OnValueReplication_Raw;
 	FDelegateHandle OnNetInit_Raw;
+	FDelegateHandle OnNetPlayerConnexionEvent_Raw;
+	virtual void OnNetConnexionEvent_CallBack(const int32 PlayerId, bool bIsDisconnection, bool bIsLocalPlayer);
 public:
 
 	bool BindNetworkManager();
@@ -42,4 +44,8 @@ public:
 	virtual void OnNetInit();
 	
 	virtual void OnNetValueReplicated(const FName Tag, FPulseNetReplicatedData Value, EReplicationEntryOperationType OpType);
+	
+	virtual void OnPlayerConnection(const int32 PlayerId, bool bIsLocalPlayer);
+	
+	virtual void OnPlayerDisconnection(const int32 PlayerId, bool bIsLocalPlayer);
 };

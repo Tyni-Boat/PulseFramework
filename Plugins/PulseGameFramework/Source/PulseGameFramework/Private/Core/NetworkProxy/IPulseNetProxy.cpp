@@ -4,6 +4,13 @@
 #include "Core/NetworkProxy/IPulseNetProxy.h"
 
 
+void IIPulseNetProxy::OnNetConnexionEvent_CallBack(const int32 PlayerId, bool bIsDisconnection, bool bIsLocalPlayer)
+{
+	if (bIsDisconnection)
+		OnPlayerDisconnection(PlayerId, bIsLocalPlayer);
+	else
+		OnPlayerConnection(PlayerId, bIsLocalPlayer);
+}
 
 bool IIPulseNetProxy::BindNetworkManager()
 {
@@ -22,6 +29,10 @@ bool IIPulseNetProxy::BindNetworkManager()
 	{
 		if (auto obj = Cast<IIPulseNetProxy>(w_Ptr.Get())) obj->OnNetInit();
 	});
+	OnNetPlayerConnexionEvent_Raw = netMgr->OnNetPlayerConnexion_Raw.AddLambda([w_Ptr](int32 Id, bool bDis, bool bLocal)-> void
+	{
+		if (auto obj = Cast<IIPulseNetProxy>(w_Ptr.Get())) obj->OnNetConnexionEvent_CallBack(Id, bDis, bLocal);
+	});
 	return true;
 }
 
@@ -37,8 +48,11 @@ bool IIPulseNetProxy::UnbindNetworkManager()
 		netMgr->OnNetInit_Raw.Remove(OnNetInit_Raw);
 	if (OnValueReplication_Raw.IsValid())
 		netMgr->OnNetReplication_Raw.Remove(OnValueReplication_Raw);
+	if (OnNetPlayerConnexionEvent_Raw.IsValid())
+		netMgr->OnNetPlayerConnexion_Raw.Remove(OnNetPlayerConnexionEvent_Raw);
 	OnNetInit_Raw.Reset();
 	OnValueReplication_Raw.Reset();
+	OnNetPlayerConnexionEvent_Raw.Reset();
 	return true;
 }
 
@@ -93,5 +107,13 @@ void IIPulseNetProxy::OnNetInit()
 }
 
 void IIPulseNetProxy::OnNetValueReplicated(const FName Tag, FPulseNetReplicatedData Value, EReplicationEntryOperationType OpType)
+{
+}
+
+void IIPulseNetProxy::OnPlayerConnection(const int32 PlayerId, bool bIsLocalPlayer)
+{
+}
+
+void IIPulseNetProxy::OnPlayerDisconnection(const int32 PlayerId, bool bIsLocalPlayer)
 {
 }

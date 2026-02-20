@@ -77,15 +77,23 @@ public:
 	FOnPulseNetInit OnNetInit;
 	FOnPulseNetInit_Raw OnNetInit_Raw;
 
+	UPROPERTY(BlueprintAssignable, Category = "PulseCore|Network")
+	FOnNetConnexionEvent OnNetPlayerConnexion;
+	FOnNetConnexionEvent_Raw OnNetPlayerConnexion_Raw;
+
 	static UPulseNetManager* Get(const UObject* WorldContext);
 
-	// Get the local Id of the current proxy
+	// Get the local Id the net proxy registered as the master one.
 	UFUNCTION(BlueprintPure, Category = "PulseCore|Network")
 	int32 GetNetLocalID() const;
 
 	// Get the local Id of a controller
 	UFUNCTION(BlueprintPure, Category = "PulseCore|Network")
-	int32 GetControllerNetLocalID(APlayerController* Controller) const;
+	int32 GetControllerNetLocalID(AController* Controller) const;
+
+	// Get the local Id of a controlled Pawn
+	UFUNCTION(BlueprintPure, Category = "PulseCore|Network")
+	int32 GetPawnNetLocalID(APawn* Pawn) const;
 
 	// Get every replicated value associated with this Tag
 	UFUNCTION(BlueprintCallable, Category = "PulseCore|Network", meta = (AdvancedDisplay = 1, AutoCreateRefTerm = "Tags, FromSpecificPlayerIds"))
@@ -130,6 +138,7 @@ public:
 	virtual void BeginDestroy() override;
 
 protected:
+	UFUNCTION() void OnNetPlayerConnexion_Func(int32 PlayerID, bool bIsDisconnection, bool bIsLocalPlayer);
 	UFUNCTION() void OnNetReplication_Func(FName Tag, FPulseNetReplicatedData Value, EReplicationEntryOperationType Operation);
 	UFUNCTION() void OnNetInit_Func();
 
@@ -140,5 +149,8 @@ public:
 
 	UPROPERTY(BlueprintAssignable, Category = "PulseCore|Network")
 	FOnPulseNetInit OnNetInit;
+	
+	UPROPERTY(BlueprintAssignable, Category = "PulseCore|Network")
+	FOnNetConnexionEvent OnNetPlayerConnexion;
 	
 };
