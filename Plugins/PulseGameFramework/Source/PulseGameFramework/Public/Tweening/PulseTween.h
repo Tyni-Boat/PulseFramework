@@ -10,10 +10,6 @@
 #include "PulseTween.generated.h"
 
 
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FTweenUpdateEvent, float, Value, float, Percentage);
-
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FTweenIDTriggerEvent, TSet<FGuid>, TweenUIDSet);
-
 
 /**
  * Pulse Tween tickable world sub-System
@@ -178,71 +174,4 @@ public:
 
 	// Start tweening Tween Instance and return it's UID.
 	static FGuid Tween(const UObject* Owner, const FPulseTweenInstance& TweenInstance);
-};
-
-
-/**
- * @brief Utility object to easily handle Tween events in blueprint.
- */
-UCLASS(NotBlueprintable, BlueprintType)
-class UPulseTweenEventListener : public UObject
-{
-	GENERATED_BODY()
-
-public:
-	virtual void PostInitProperties() override;
-	virtual void BeginDestroy() override;
-
-protected:
-	UFUNCTION()
-	void OnTweenUpdateEvent_Func(TSet<FGuid> TweenUIDSet);
-	UFUNCTION()
-	void OnTweenStartedEvent_Func(TSet<FGuid> TweenUIDSet);
-	UFUNCTION()
-	void OnTweenPausedEvent_Func(TSet<FGuid> TweenUIDSet);
-	UFUNCTION()
-	void OnTweenResumedEvent_Func(TSet<FGuid> TweenUIDSet);
-	UFUNCTION()
-	void OnTweenCompletedEvent_Func(TSet<FGuid> TweenUIDSet);
-	UFUNCTION()
-	void OnTweenCancelledEvent_Func(TSet<FGuid> TweenUIDSet);
-	UFUNCTION()
-	void OnTweenPingPongApexEvent_Func(TSet<FGuid> TweenUIDSet);
-	UFUNCTION()
-	void OnTweenLoopEvent_Func(TSet<FGuid> TweenUIDSet);
-	UFUNCTION()
-	void OnTweenSequenceMoveNextEvent_Func(TSet<FGuid> TweenUIDSet);
-	UFUNCTION()
-	void OnTweenSequenceCompletedEvent_Func(TSet<FGuid> TweenUIDSet);
-
-public:
-	UPROPERTY(BlueprintAssignable, Category="PulseCore|Tweening")
-	FTweenIDTriggerEvent OnTweenUpdateEvent;
-
-	UPROPERTY(BlueprintAssignable, Category="PulseCore|Tweening")
-	FTweenIDTriggerEvent OnTweenStartedEvent;
-
-	UPROPERTY(BlueprintAssignable, Category="PulseCore|Tweening")
-	FTweenIDTriggerEvent OnTweenPausedEvent;
-
-	UPROPERTY(BlueprintAssignable, Category="PulseCore|Tweening")
-	FTweenIDTriggerEvent OnTweenResumedEvent;
-
-	UPROPERTY(BlueprintAssignable, Category="PulseCore|Tweening")
-	FTweenIDTriggerEvent OnTweenCompletedEvent;
-
-	UPROPERTY(BlueprintAssignable, Category="PulseCore|Tweening")
-	FTweenIDTriggerEvent OnTweenCancelledEvent;
-
-	UPROPERTY(BlueprintAssignable, Category="PulseCore|Tweening")
-	FTweenIDTriggerEvent OnTweenPingPongApexEvent;
-
-	UPROPERTY(BlueprintAssignable, Category="PulseCore|Tweening")
-	FTweenIDTriggerEvent OnTweenLoopEvent;
-
-	UPROPERTY(BlueprintAssignable, Category="PulseCore|Tweening")
-	FTweenIDTriggerEvent OnTweenSequenceMoveNextEvent;
-
-	UPROPERTY(BlueprintAssignable, Category="PulseCore|Tweening")
-	FTweenIDTriggerEvent OnTweenSequenceCompletedEvent;
 };

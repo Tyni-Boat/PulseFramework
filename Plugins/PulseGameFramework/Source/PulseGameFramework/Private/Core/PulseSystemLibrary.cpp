@@ -359,6 +359,46 @@ bool UPulseSystemLibrary::RemoveComponentAtRuntime(AActor* Actor, UActorComponen
 	return false;
 }
 
+void UPulseSystemLibrary::ForeachActorClass(const UObject* WorldContext, TSubclassOf<AActor> Class, TFunction<void(AActor*)> Action, TFunction<bool(AActor*)> Condition)
+{
+	if (!WorldContext)
+		return;
+	if (!Action)
+		return;
+	if (!Class)
+		return;
+	TArray<AActor*> OutActors;
+	UGameplayStatics::GetAllActorsOfClass(WorldContext, Class, OutActors);
+	for (auto* actor : OutActors)
+	{
+		if (!actor)
+			continue;
+		if (Condition && !Condition(actor))
+			continue;
+		Action(actor);
+	}
+}
+
+void UPulseSystemLibrary::ForeachActorInterface(const UObject* WorldContext, TSubclassOf<UInterface> Interface, TFunction<void(AActor*)> Action, TFunction<bool(AActor*)> Condition)
+{
+	if (!WorldContext)
+		return;
+	if (!Action)
+		return;
+	if (!Interface)
+		return;
+	TArray<AActor*> OutActors;
+	UGameplayStatics::GetAllActorsWithInterface(WorldContext, Interface, OutActors);
+	for (auto* actor : OutActors)
+	{
+		if (!actor)
+			continue;
+		if (Condition && !Condition(actor))
+			continue;
+		Action(actor);
+	}
+}
+
 
 bool UPulseSystemLibrary::SerializeObjectToBytes(UObject* object, TArray<uint8>& outBytes)
 {
@@ -574,13 +614,13 @@ bool UPulseSystemLibrary::FileIsPathWritable(const FString& DirectoryPath)
 
 	if (!FileHandle)
 	{
+		if (!dirExist)
+			PlatformFile.DeleteDirectory(*DirectoryPath);
 		return false;
 	}
 
 	FileHandle.Reset(); // Close file
 	PlatformFile.DeleteFile(*TestFilePath);
-	if (!dirExist)
-		PlatformFile.DeleteDirectory(*DirectoryPath);
 	return true;
 }
 

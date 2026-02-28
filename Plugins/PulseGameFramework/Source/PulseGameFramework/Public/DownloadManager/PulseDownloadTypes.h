@@ -6,8 +6,8 @@
 #include "PulseDownloadTypes.generated.h"
 
 
-UENUM(BlueprintType, meta = (Bitflags, UseEnumValuesAsMaskValuesInEditor = true))
-enum class EDownloadState : uint8
+UENUM(BlueprintType, meta = (Bitflags, UseEnumValuesAsMaskValuesInEditor = true, BitmaskEnum = "/Script/PulseGameFramework.EDownloadState"))
+enum class EPulseDownloadState : uint8
 {
 	None = 0 UMETA(Hidden),
 	Queued = 1 << 0 UMETA(ToolTip = "In Queue and waiting for download infos from server"),
@@ -18,7 +18,7 @@ enum class EDownloadState : uint8
 	Failed = 1 << 5 UMETA(ToolTip = "Completed with failure"),
 	Cancelled = 1 << 6 UMETA(ToolTip = "Cancelled by user"),
 };
-ENUM_CLASS_FLAGS(EDownloadState);
+ENUM_CLASS_FLAGS(EPulseDownloadState);
 
 USTRUCT(BlueprintType)
 struct FDownloadIdentifier
@@ -43,7 +43,7 @@ public:
 
 	// The state of the download identifier when saved
 	UPROPERTY()
-	EDownloadState SavedState = EDownloadState::None;
+	EPulseDownloadState SavedState = EPulseDownloadState::None;
 	UPROPERTY()
 	int64 SavedTotalSize = 0;
 	UPROPERTY()
@@ -90,3 +90,6 @@ public:
 	UPROPERTY()
 	FPulseDownloadSaved PulseDownloadSaved;
 };
+
+
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FPulseDownloadDelegateEvent, const FGuid&, DownloadId);

@@ -22,7 +22,7 @@ bool UPulseDownloader::StartDownload_Internal(const FDownloadIdentifier& Downloa
 	}
 	UPulseDownloadTask* DownloadTask = NewObject<UPulseDownloadTask>();
 	DownloadTask->Identifier = DownloadIdentifier;
-	DownloadTask->DownloadState = EDownloadState::Queued;
+	DownloadTask->DownloadState = EPulseDownloadState::Queued;
 	Downloads.Add(DownloadIdentifier.Id, DownloadTask);
 	AsyncTask(ENamedThreads::GameThread, [this, DownloadIdentifier]()-> void { OnDownloadQueued.Broadcast(DownloadIdentifier.Id); });
 	return RequestDownloadStart(DownloadIdentifier.Id);
@@ -35,7 +35,7 @@ bool UPulseDownloader::RequestDownloadStart(const FGuid& DownloadId)
 	{
 		if (!pair.Value)
 			continue;
-		if (pair.Value->DownloadState == EDownloadState::Downloading)
+		if (pair.Value->DownloadState == EPulseDownloadState::Downloading)
 			downloadingCount++;
 	}
 	if (downloadingCount >= _maxConcurrentDownloads)
@@ -64,7 +64,7 @@ bool UPulseDownloader::RequestDownloadStart(const FGuid& DownloadId)
 	{
 	default:
 		break;
-	case EDownloadState::Queued:
+	case EPulseDownloadState::Queued:
 	{
 		// Handle download attempts
 		if (!Task->IsInitialized())
@@ -85,52 +85,52 @@ bool UPulseDownloader::RequestDownloadStart(const FGuid& DownloadId)
 		{
 			UE_LOG(LogPulseDownloader, Warning, TEXT("Start Request: (Queue) task already initialized. Will be transferred to Ready (Task:%s)"),
 				*Task->Identifier.ToString());
-			EDownloadState savedState = Task->Identifier.SavedState;
-			Task->DownloadState = EDownloadState::ReadyToDownload;
-			BroadcastDownloadEvent(DownloadId, EDownloadState::ReadyToDownload);
-			if (savedState == EDownloadState::Downloading || savedState == EDownloadState::Paused)
+			EPulseDownloadState savedState = Task->Identifier.SavedState;
+			Task->DownloadState = EPulseDownloadState::ReadyToDownload;
+			BroadcastDownloadEvent(DownloadId, EPulseDownloadState::ReadyToDownload);
+			if (savedState == EPulseDownloadState::Downloading || savedState == EPulseDownloadState::Paused)
 				RequestDownloadStart(DownloadId);
 			return true;
 		}
 	}
 	break;
-	case EDownloadState::ReadyToDownload:
+	case EPulseDownloadState::ReadyToDownload:
 	{
 		// Handle Ready downloads
 		if (!Task->IsInitialized())
 		{
 			UE_LOG(LogPulseDownloader, Warning, TEXT("Start Request Failed: (Ready) task is not initialized. Will be transferred to attempts (Task:%s)"),
 				*Task->Identifier.ToString());
-			Task->Identifier.SavedState = EDownloadState::Downloading;
-			Task->DownloadState = EDownloadState::Queued;
-			BroadcastDownloadEvent(DownloadId, EDownloadState::Queued);
+			Task->Identifier.SavedState = EPulseDownloadState::Downloading;
+			Task->DownloadState = EPulseDownloadState::Queued;
+			BroadcastDownloadEvent(DownloadId, EPulseDownloadState::Queued);
 			return RequestDownloadStart(DownloadId);
 		}
 		auto savedState = Task->Identifier.SavedState;
 		if (StartDownloadTask(DownloadId))
 		{
-			if (savedState == EDownloadState::Paused)
+			if (savedState == EPulseDownloadState::Paused)
 				PauseDownload(DownloadId);
 			return true;
 		}
 		return false;
 	}
 	break;
-	case EDownloadState::Paused:
+	case EPulseDownloadState::Paused:
 	{
 		// Handle paused downloads
 		if (!Task->IsInitialized())
 		{
 			UE_LOG(LogPulseDownloader, Warning, TEXT("Start Request Failed: (Paused) task is not initialized. Will be transferred to attempts (Task:%s)"),
 				*Task->Identifier.ToString());
-			Task->Identifier.SavedState = EDownloadState::Downloading;
-			Task->DownloadState = EDownloadState::Queued;
-			BroadcastDownloadEvent(DownloadId, EDownloadState::Queued);
+			Task->Identifier.SavedState = EPulseDownloadState::Downloading;
+			Task->DownloadState = EPulseDownloadState::Queued;
+			BroadcastDownloadEvent(DownloadId, EPulseDownloadState::Queued);
 			return RequestDownloadStart(DownloadId);
 		}
 
-		Task->Identifier.SavedState = EDownloadState::Downloading;
-		Task->DownloadState = EDownloadState::ReadyToDownload;
+		Task->Identifier.SavedState = EPulseDownloadState::Downloading;
+		Task->DownloadState = EPulseDownloadState::ReadyToDownload;
 		RequestDownloadStart(DownloadId);
 		return false;
 	}
@@ -162,7 +162,7 @@ bool UPulseDownloader::StartDownloadTask(const FGuid& DownloadId)
 		UE_LOG(LogPulseDownloader, Warning, TEXT("Start Download Failed: task is not initialized. (Task:%s)"), *Task->Identifier.ToString());
 		return false;
 	}
-	if (Task->DownloadState == EDownloadState::Downloading)
+	if (Task->DownloadState == EPulseDownloadState::Downloading)
 	{
 		UE_LOG(LogPulseDownloader, Error, TEXT("Start Instance Download Failed: Task already downloading (Task:%s)"), *Task->Identifier.ToString());
 		return true;
@@ -174,11 +174,11 @@ bool UPulseDownloader::StartDownloadTask(const FGuid& DownloadId)
 	{
 		if (Download.Value->IsComplete())
 			continue;
-		if (Download.Value->DownloadState != EDownloadState::Downloading)
+		if (Download.Value->DownloadState != EPulseDownloadState::Downloading)
 			continue;
-		if (Download.Value->DownloadState != EDownloadState::Paused)
+		if (Download.Value->DownloadState != EPulseDownloadState::Paused)
 			continue;
-		if (Download.Value->DownloadState != EDownloadState::Failed)
+		if (Download.Value->DownloadState != EPulseDownloadState::Failed)
 			continue;
 		if (Download.Value->Identifier.GetFilePath() == Task->Identifier.GetFilePath())
 			samePathCount++;
@@ -189,14 +189,14 @@ bool UPulseDownloader::StartDownloadTask(const FGuid& DownloadId)
 			*Task->Identifier.ToString());
 		return false;
 	}
-	Task->Identifier.SavedState = EDownloadState::None;
-	Task->DownloadState = EDownloadState::Downloading;
+	Task->Identifier.SavedState = EPulseDownloadState::None;
+	Task->DownloadState = EPulseDownloadState::Downloading;
 	Task->Identifier.StartDate = FDateTime::Now();
 	int32 finalChunkSizeMb = _downloadChunkMBSize;
 	if (!Task->bDoServerSupportRange)
 		finalChunkSizeMb = FMath::CeilToInt((double)Task->TotalSize / 1024 / 1024);
 	DownloadTask(DownloadId, finalChunkSizeMb);
-	BroadcastDownloadEvent(DownloadId, EDownloadState::None);
+	BroadcastDownloadEvent(DownloadId, EPulseDownloadState::None);
 	return true;
 }
 
@@ -233,39 +233,39 @@ void UPulseDownloader::DownloadTask(const FGuid& DownloadId, int32 MBChunkSize)
 		});
 }
 
-void UPulseDownloader::BroadcastDownloadEvent(const FGuid& DownloadId, EDownloadState EventType)
+void UPulseDownloader::BroadcastDownloadEvent(const FGuid& DownloadId, EPulseDownloadState EventType)
 {
 	AsyncTask(ENamedThreads::GameThread, [DownloadId, EventType]()-> void
 		{
 			auto dm = UPulseDownloader::Get();
 			if (!dm)
 				return;
-			if (EventType != EDownloadState::Downloading)
+			if (EventType != EPulseDownloadState::Downloading)
 				dm->SaveRememberFile();
 			switch (EventType)
 			{
-			case EDownloadState::None:
+			case EPulseDownloadState::None:
 				dm->OnDownloadResumedOrStarted.Broadcast(DownloadId);
 				break;
-			case EDownloadState::Queued:
+			case EPulseDownloadState::Queued:
 				dm->OnDownloadQueued.Broadcast(DownloadId);
 				break;
-			case EDownloadState::ReadyToDownload:
+			case EPulseDownloadState::ReadyToDownload:
 				dm->OnDownloadReadyToStart.Broadcast(DownloadId);
 				break;
-			case EDownloadState::Downloading:
+			case EPulseDownloadState::Downloading:
 				dm->OnDownloadOnGoing.Broadcast(DownloadId);
 				break;
-			case EDownloadState::Paused:
+			case EPulseDownloadState::Paused:
 				dm->OnDownloadPaused.Broadcast(DownloadId);
 				break;
-			case EDownloadState::Completed:
+			case EPulseDownloadState::Completed:
 				dm->OnDownloadComplete.Broadcast(DownloadId);
 				break;
-			case EDownloadState::Failed:
+			case EPulseDownloadState::Failed:
 				dm->OnDownloadComplete.Broadcast(DownloadId);
 				break;
-			case EDownloadState::Cancelled:
+			case EPulseDownloadState::Cancelled:
 				dm->OnDownloadCancelled.Broadcast(DownloadId);
 				break;
 			}
@@ -291,7 +291,7 @@ void UPulseDownloader::OnReceiveDownloadInfos(const FGuid& DownloadId, FString F
 		DownloadManager->Downloads.Remove(DownloadId);
 		UE_LOG(LogPulseDownloader, Warning, TEXT("Query Download Infos Update: File name collision detected. File name: %s (Download ID:%s) Collided with Task:%s"),
 			*FileName, *DownloadId.ToString(), *(CollisionTask ? CollisionTask->Identifier.ToString() : "NULL"));
-		if (CollisionTask && CollisionTask->DownloadState == EDownloadState::Paused)
+		if (CollisionTask && CollisionTask->DownloadState == EPulseDownloadState::Paused)
 		{
 			DownloadManager->ResumeDownload(CollisionTask->Identifier.Id);
 		}
@@ -307,8 +307,8 @@ void UPulseDownloader::OnReceiveDownloadInfos(const FGuid& DownloadId, FString F
 	{
 		UE_LOG(LogPulseDownloader, Error, TEXT("Query Download Infos Failed: Failed to get file size. (Task:%s)"), *DownloadTask->Identifier.ToString());
 		DownloadTask->bIsInfosRequestOngoing = false;
-		DownloadTask->DownloadState = EDownloadState::Failed;
-		DownloadManager->BroadcastDownloadEvent(DownloadId, EDownloadState::Failed);
+		DownloadTask->DownloadState = EPulseDownloadState::Failed;
+		DownloadManager->BroadcastDownloadEvent(DownloadId, EPulseDownloadState::Failed);
 		return;
 	}
 	DownloadTask->Identifier.FileName = FileName;
@@ -316,8 +316,8 @@ void UPulseDownloader::OnReceiveDownloadInfos(const FGuid& DownloadId, FString F
 	{
 		UE_LOG(LogPulseDownloader, Error, TEXT("Query Download Infos Failed: File Size is 0. (Task:%s)"), *DownloadTask->Identifier.ToString());
 		DownloadTask->bIsInfosRequestOngoing = false;
-		DownloadTask->DownloadState = EDownloadState::Failed;
-		DownloadManager->BroadcastDownloadEvent(DownloadId, EDownloadState::Failed);
+		DownloadTask->DownloadState = EPulseDownloadState::Failed;
+		DownloadManager->BroadcastDownloadEvent(DownloadId, EPulseDownloadState::Failed);
 		return;
 	}
 	if (FileSize >= (DownloadManager->_downloadChunkMBSize * 1024 * 1024))
@@ -358,10 +358,10 @@ void UPulseDownloader::OnPostReceiveDownloadInfos(const FGuid& DownloadId, FStri
 	UE_LOG(LogPulseDownloader, Log, TEXT("Query Download Infos: Successfully initialized. File size = %s (Task:%s)"), *UPulseSystemLibrary::FileSizeToString(FileSize),
 		*DownloadTask->Identifier.ToString());
 	DownloadTask->bDoServerSupportRange = bSupportChunking;
-	DownloadTask->DownloadState = EDownloadState::ReadyToDownload;
-	EDownloadState savedState = DownloadTask->Identifier.SavedState;
-	DownloadManager->BroadcastDownloadEvent(DownloadId, EDownloadState::ReadyToDownload);
-	if (savedState == EDownloadState::Downloading || savedState == EDownloadState::Paused)
+	DownloadTask->DownloadState = EPulseDownloadState::ReadyToDownload;
+	EPulseDownloadState savedState = DownloadTask->Identifier.SavedState;
+	DownloadManager->BroadcastDownloadEvent(DownloadId, EPulseDownloadState::ReadyToDownload);
+	if (savedState == EPulseDownloadState::Downloading || savedState == EPulseDownloadState::Paused)
 		DownloadManager->RequestDownloadStart(DownloadId);
 }
 
@@ -400,7 +400,7 @@ void UPulseDownloader::OnUpdateDownloadTask(UPulseDownloadTask* DownloadTask)
 {
 	if (!DownloadTask)
 		return;
-	BroadcastDownloadEvent(DownloadTask->Identifier.Id, EDownloadState::Downloading);
+	BroadcastDownloadEvent(DownloadTask->Identifier.Id, EPulseDownloadState::Downloading);
 }
 
 void UPulseDownloader::OnCompletedDownloadTask(UPulseDownloadTask* DownloadTask)
@@ -413,8 +413,8 @@ void UPulseDownloader::OnCompletedDownloadTask(UPulseDownloadTask* DownloadTask)
 	int64 FinalSize = IFileManager::Get().FileSize(*DownloadTask->Identifier.GetFilePath());
 	UE_LOG(LogPulseDownloader, Log, TEXT("Download Completed: %s/%s (Task:%s)"), *UPulseSystemLibrary::FileSizeToString(FinalSize),
 		*UPulseSystemLibrary::FileSizeToString(DownloadTask->GetTotalSize()), *DownloadTask->Identifier.ToString());
-	DownloadTask->DownloadState = EDownloadState::Completed;
-	DownloadTask->Identifier.SavedState = EDownloadState::Completed;
+	DownloadTask->DownloadState = EPulseDownloadState::Completed;
+	DownloadTask->Identifier.SavedState = EPulseDownloadState::Completed;
 	UnbindDownloadTask(DownloadTask);
 	const int32 index = SavedDownloads.DownloadHistory.IndexOfByKey(DownloadTask->Identifier);
 	if (SavedDownloads.DownloadHistory.IsValidIndex(index))
@@ -422,7 +422,7 @@ void UPulseDownloader::OnCompletedDownloadTask(UPulseDownloadTask* DownloadTask)
 	else
 		SavedDownloads.DownloadHistory.Add(DownloadTask->Identifier);
 	Downloads.Remove(DownloadTask->Identifier.Id);
-	BroadcastDownloadEvent(DownloadTask->Identifier.Id, EDownloadState::Completed);
+	BroadcastDownloadEvent(DownloadTask->Identifier.Id, EPulseDownloadState::Completed);
 	StartQueueDownload();
 }
 
@@ -430,10 +430,10 @@ void UPulseDownloader::OnFailedDownloadTask(UPulseDownloadTask* DownloadTask)
 {
 	if (!DownloadTask)
 		return;
-	DownloadTask->DownloadState = EDownloadState::Failed;
+	DownloadTask->DownloadState = EPulseDownloadState::Failed;
 	UnbindDownloadTask(DownloadTask);
 	DownloadTask->DeleteChunkFiles();
-	BroadcastDownloadEvent(DownloadTask->Identifier.Id, EDownloadState::Failed);
+	BroadcastDownloadEvent(DownloadTask->Identifier.Id, EPulseDownloadState::Failed);
 	StartQueueDownload();
 }
 
@@ -444,7 +444,7 @@ void UPulseDownloader::OnCancelledDownloadTask(UPulseDownloadTask* DownloadTask)
 	UnbindDownloadTask(DownloadTask);
 	DownloadTask->DeleteChunkFiles();
 	IFileManager::Get().Delete(*DownloadTask->Identifier.GetFilePath());
-	BroadcastDownloadEvent(DownloadTask->Identifier.Id, EDownloadState::Cancelled);
+	BroadcastDownloadEvent(DownloadTask->Identifier.Id, EPulseDownloadState::Cancelled);
 	StartQueueDownload();
 }
 
@@ -453,7 +453,7 @@ void UPulseDownloader::OnPausedDownloadTask(UPulseDownloadTask* DownloadTask)
 	if (!DownloadTask)
 		return;
 	UnbindDownloadTask(DownloadTask);
-	BroadcastDownloadEvent(DownloadTask->Identifier.Id, EDownloadState::Paused);
+	BroadcastDownloadEvent(DownloadTask->Identifier.Id, EPulseDownloadState::Paused);
 	StartQueueDownload();
 }
 
@@ -515,7 +515,7 @@ void UPulseDownloader::OnRememberFileLoaded(const FString&, const int32, USaveGa
 	}
 	UE_LOG(LogPulseDownloader, Log, TEXT("Load Meta file completed successfully"));
 	SavedDownloads = asDSave->PulseDownloadSaved;
-	auto MakeTaskLambda = [](const FDownloadIdentifier& DownloadId, const EDownloadState InitialState)-> UPulseDownloadTask*
+	auto MakeTaskLambda = [](const FDownloadIdentifier& DownloadId, const EPulseDownloadState InitialState)-> UPulseDownloadTask*
 		{
 			UPulseDownloadTask* DownloadTask = NewObject<UPulseDownloadTask>();
 			DownloadTask->Identifier = DownloadId;
@@ -526,31 +526,31 @@ void UPulseDownloader::OnRememberFileLoaded(const FString&, const int32, USaveGa
 	{
 		switch (entry.SavedState)
 		{
-		case EDownloadState::None:
+		case EPulseDownloadState::None:
 			break;
-		case EDownloadState::Queued:
-			Downloads.Add(entry.Id, MakeTaskLambda(entry, EDownloadState::Queued));
+		case EPulseDownloadState::Queued:
+			Downloads.Add(entry.Id, MakeTaskLambda(entry, EPulseDownloadState::Queued));
 			OnDownloadQueued.Broadcast(entry.Id);
 			break;
-		case EDownloadState::ReadyToDownload:
+		case EPulseDownloadState::ReadyToDownload:
 			StartDownload_Internal(entry);
 			break;
-		case EDownloadState::Downloading:
+		case EPulseDownloadState::Downloading:
 			StartDownload_Internal(entry);
 			break;
-		case EDownloadState::Paused:
-			Downloads.Add(entry.Id, MakeTaskLambda(entry, EDownloadState::Paused));
+		case EPulseDownloadState::Paused:
+			Downloads.Add(entry.Id, MakeTaskLambda(entry, EPulseDownloadState::Paused));
 			OnDownloadPaused.Broadcast(entry.Id);
 			break;
-		case EDownloadState::Completed:
+		case EPulseDownloadState::Completed:
 			OnDownloadComplete.Broadcast(entry.Id);
 			break;
-		case EDownloadState::Failed:
-			Downloads.Add(entry.Id, MakeTaskLambda(entry, EDownloadState::Failed));
+		case EPulseDownloadState::Failed:
+			Downloads.Add(entry.Id, MakeTaskLambda(entry, EPulseDownloadState::Failed));
 			OnDownloadComplete.Broadcast(entry.Id);
 			break;
-		case EDownloadState::Cancelled:
-			Downloads.Add(entry.Id, MakeTaskLambda(entry, EDownloadState::Cancelled));
+		case EPulseDownloadState::Cancelled:
+			Downloads.Add(entry.Id, MakeTaskLambda(entry, EPulseDownloadState::Cancelled));
 			OnDownloadCancelled.Broadcast(entry.Id);
 			break;
 		}
@@ -586,7 +586,7 @@ bool UPulseDownloader::StartDownload(const FString& Url, FGuid& OutDownloadId, c
 		UE_LOG(LogPulseDownloader, Error, TEXT("Start Download Failed: Directory %s is not writable. Url: %s"), *Identifier.Directory, *Url);
 		return false;
 	}
-	Identifier.SavedState = bImmediateStart ? EDownloadState::Downloading : EDownloadState::None;
+	Identifier.SavedState = bImmediateStart ? EPulseDownloadState::Downloading : EPulseDownloadState::None;
 	GetFileNameFromURL(Url, Identifier.FileName);
 	if (StartDownload_Internal(Identifier))
 	{
@@ -603,12 +603,12 @@ bool UPulseDownloader::PauseDownload(const FGuid& DownloadId)
 	if (!Downloads[DownloadId])
 		return false;
 	auto DownloadTask = Downloads[DownloadId];
-	if (DownloadTask->DownloadState != EDownloadState::Downloading)
+	if (DownloadTask->DownloadState != EPulseDownloadState::Downloading)
 		return false;
 	if (DownloadTask->bIsActionRequestOngoing)
 		return false;
 	auto pastState = DownloadTask->DownloadState;
-	DownloadTask->DownloadState = EDownloadState::Paused;
+	DownloadTask->DownloadState = EPulseDownloadState::Paused;
 	if (!DownloadTask->PauseTask())
 	{
 		DownloadTask->DownloadState = pastState;
@@ -624,9 +624,9 @@ bool UPulseDownloader::ResumeDownload(const FGuid& DownloadId)
 	if (!Downloads[DownloadId])
 		return false;
 	auto DownloadTask = Downloads[DownloadId];
-	if (DownloadTask->DownloadState != EDownloadState::Paused && DownloadTask->DownloadState != EDownloadState::ReadyToDownload)
+	if (DownloadTask->DownloadState != EPulseDownloadState::Paused && DownloadTask->DownloadState != EPulseDownloadState::ReadyToDownload)
 		return false;
-	if (DownloadTask->DownloadState == EDownloadState::Downloading)
+	if (DownloadTask->DownloadState == EPulseDownloadState::Downloading)
 		return false;
 	return RequestDownloadStart(DownloadId);
 }
@@ -638,9 +638,9 @@ bool UPulseDownloader::RetryDownload(const FGuid& DownloadId)
 	if (!Downloads[DownloadId])
 		return false;
 	auto Task = Downloads[DownloadId];
-	Task->Identifier.SavedState = EDownloadState::Downloading;
-	Task->DownloadState = EDownloadState::Queued;
-	BroadcastDownloadEvent(Task->Identifier.Id, EDownloadState::Queued);
+	Task->Identifier.SavedState = EPulseDownloadState::Downloading;
+	Task->DownloadState = EPulseDownloadState::Queued;
+	BroadcastDownloadEvent(Task->Identifier.Id, EPulseDownloadState::Queued);
 	return RequestDownloadStart(DownloadId);
 }
 
@@ -651,15 +651,15 @@ bool UPulseDownloader::CancelDownload(const FGuid& DownloadId)
 	if (!Downloads[DownloadId])
 		return false;
 	auto DownloadTask = Downloads[DownloadId];
-	if (DownloadTask->DownloadState == EDownloadState::Cancelled)
+	if (DownloadTask->DownloadState == EPulseDownloadState::Cancelled)
 		return false;
-	if (DownloadTask->DownloadState != EDownloadState::Paused && DownloadTask->DownloadState != EDownloadState::Downloading)
+	if (DownloadTask->DownloadState != EPulseDownloadState::Paused && DownloadTask->DownloadState != EPulseDownloadState::Downloading)
 		return false;
 	if (DownloadTask->bIsActionRequestOngoing)
 		return false;
 	auto pastState = DownloadTask->DownloadState;
-	DownloadTask->DownloadState = EDownloadState::Cancelled;
-	if (!DownloadTask->bIsBound && pastState != EDownloadState::Downloading)
+	DownloadTask->DownloadState = EPulseDownloadState::Cancelled;
+	if (!DownloadTask->bIsBound && pastState != EPulseDownloadState::Downloading)
 	{
 		OnCancelledDownloadTask(DownloadTask);
 		return true;
@@ -685,16 +685,16 @@ bool UPulseDownloader::GetCompletedDownloads(TArray<FGuid>& OutDownloadIds) cons
 	OutDownloadIds.Empty();
 	for (const auto& Download : SavedDownloads.DownloadHistory)
 	{
-		if (Download.SavedState != EDownloadState::Completed)
+		if (Download.SavedState != EPulseDownloadState::Completed)
 			continue;
 		OutDownloadIds.Add(Download.Id);
 	}
 	return OutDownloadIds.Num() > 0;
 }
 
-bool UPulseDownloader::GetDownloadState(const FGuid& DownloadId, EDownloadState& OutState) const
+bool UPulseDownloader::GetDownloadState(const FGuid& DownloadId, EPulseDownloadState& OutState) const
 {
-	OutState = EDownloadState::None;
+	OutState = EPulseDownloadState::None;
 	if (Downloads.Contains(DownloadId))
 	{
 		OutState = Downloads[DownloadId]->DownloadState;
@@ -703,7 +703,7 @@ bool UPulseDownloader::GetDownloadState(const FGuid& DownloadId, EDownloadState&
 	const int32 index = SavedDownloads.DownloadHistory.IndexOfByPredicate([DownloadId](const FDownloadIdentifier& dId)-> bool { return dId.Id == DownloadId; });
 	if (index >= 0 && UPulseSystemLibrary::FileExist(SavedDownloads.DownloadHistory[index].GetFilePath()))
 	{
-		OutState = EDownloadState::Completed;
+		OutState = EPulseDownloadState::Completed;
 		return true;
 	}
 	return false;
@@ -768,7 +768,7 @@ bool UPulseDownloader::GetDownloadProgress(const FGuid& DownloadId, float& OutPr
 	if (!Downloads[DownloadId])
 		return false;
 	auto DownloadTask = Downloads[DownloadId];
-	if (DownloadTask->DownloadState != EDownloadState::Downloading && DownloadTask->DownloadState != EDownloadState::Paused)
+	if (DownloadTask->DownloadState != EPulseDownloadState::Downloading && DownloadTask->DownloadState != EPulseDownloadState::Paused)
 		return false;
 	if (DownloadTask->GetTotalSize() > 0)
 	{
@@ -786,7 +786,7 @@ bool UPulseDownloader::GetDetailedDownloadProgress(const FGuid& DownloadId, TArr
 	if (!Downloads[DownloadId])
 		return false;
 	auto DownloadTask = Downloads[DownloadId];
-	if (DownloadTask->DownloadState != EDownloadState::Downloading && DownloadTask->DownloadState != EDownloadState::Paused)
+	if (DownloadTask->DownloadState != EPulseDownloadState::Downloading && DownloadTask->DownloadState != EPulseDownloadState::Paused)
 		return false;
 	if (DownloadTask->GetTotalSize() > 0)
 	{
@@ -821,7 +821,7 @@ int32 UPulseDownloader::GetPerStateDownloadCount(int32 States) const
 		if (States & static_cast<int32>(Download.Value->DownloadState))
 			Count++;
 	}
-	if (States & static_cast<int32>(EDownloadState::Completed))
+	if (States & static_cast<int32>(EPulseDownloadState::Completed))
 		Count += SavedDownloads.DownloadHistory.Num();
 	return Count;
 }
@@ -837,7 +837,7 @@ float UPulseDownloader::GetPerStateDownloadAverageProgress(int32 States) const
 		if (States & static_cast<int32>(Download.Value->DownloadState) && GetDownloadProgress(Download.Key, Progress))
 			Progresses.Add(Progress);
 	}
-	if (States & static_cast<int32>(EDownloadState::Completed))
+	if (States & static_cast<int32>(EPulseDownloadState::Completed))
 		for (const auto& Download : SavedDownloads.DownloadHistory)
 			Progresses.Add(1);
 	return UPulseSystemLibrary::ArrayAverage(Progresses);
@@ -871,7 +871,7 @@ void UPulseDownloader::StartQueueDownload()
 			Downloads.Remove(id);
 			continue;
 		}
-		if (Downloads[id]->DownloadState != EDownloadState::ReadyToDownload && Downloads[id]->DownloadState != EDownloadState::Queued)
+		if (Downloads[id]->DownloadState != EPulseDownloadState::ReadyToDownload && Downloads[id]->DownloadState != EPulseDownloadState::Queued)
 			continue;
 		UE_LOG(LogPulseDownloader, Log, TEXT("Handle Awaiting download Id %s"), *id.ToString());
 		if (!RequestDownloadStart(id))
@@ -962,7 +962,7 @@ bool UPulseDownloader::DownloadFileCollision(const FString& FileName, const FGui
 		{
 			if (Download.Value->Identifier.Id == QueryTaskUID)
 				continue;
-			if (Download.Value->DownloadState != EDownloadState::Downloading && Download.Value->DownloadState != EDownloadState::Paused)
+			if (Download.Value->DownloadState != EPulseDownloadState::Downloading && Download.Value->DownloadState != EPulseDownloadState::Paused)
 				continue;
 			OutOngoingTask = Download.Value;
 			return true;
@@ -995,69 +995,4 @@ UPulseDownloader* UPulseDownloader::Get()
 FString UPulseDownloader::ToString(const FDownloadIdentifier& Identifier)
 {
 	return Identifier.ToString();
-}
-
-void UPulseDownloadEventListener::PostInitProperties()
-{
-	Super::PostInitProperties();
-	if (auto downloadSubSystem = UPulseDownloader::Get())
-	{
-		downloadSubSystem->OnDownloadComplete.AddDynamic(this, &UPulseDownloadEventListener::OnDownloadComplete_Func);
-		downloadSubSystem->OnDownloadPaused.AddDynamic(this, &UPulseDownloadEventListener::OnDownloadPaused_Func);
-		downloadSubSystem->OnDownloadReadyToStart.AddDynamic(this, &UPulseDownloadEventListener::OnDownloadReadyToStart_Func);
-		downloadSubSystem->OnDownloadQueued.AddDynamic(this, &UPulseDownloadEventListener::OnDownloadQueued_Func);
-		downloadSubSystem->OnDownloadResumedOrStarted.AddDynamic(this, &UPulseDownloadEventListener::OnDownloadResumedOrStarted_Func);
-		downloadSubSystem->OnDownloadOnGoing.AddDynamic(this, &UPulseDownloadEventListener::OnDownloadOnGoing_Func);
-		downloadSubSystem->OnDownloadCancelled.AddDynamic(this, &UPulseDownloadEventListener::OnDownloadCancelled_Func);
-	}
-}
-
-void UPulseDownloadEventListener::BeginDestroy()
-{
-	Super::BeginDestroy();
-	if (auto downloadSubSystem = UPulseDownloader::Get())
-	{
-		downloadSubSystem->OnDownloadComplete.RemoveDynamic(this, &UPulseDownloadEventListener::OnDownloadComplete_Func);
-		downloadSubSystem->OnDownloadPaused.RemoveDynamic(this, &UPulseDownloadEventListener::OnDownloadPaused_Func);
-		downloadSubSystem->OnDownloadReadyToStart.RemoveDynamic(this, &UPulseDownloadEventListener::OnDownloadReadyToStart_Func);
-		downloadSubSystem->OnDownloadQueued.RemoveDynamic(this, &UPulseDownloadEventListener::OnDownloadQueued_Func);
-		downloadSubSystem->OnDownloadResumedOrStarted.RemoveDynamic(this, &UPulseDownloadEventListener::OnDownloadResumedOrStarted_Func);
-		downloadSubSystem->OnDownloadOnGoing.RemoveDynamic(this, &UPulseDownloadEventListener::OnDownloadOnGoing_Func);
-		downloadSubSystem->OnDownloadCancelled.RemoveDynamic(this, &UPulseDownloadEventListener::OnDownloadCancelled_Func);
-	}
-}
-
-void UPulseDownloadEventListener::OnDownloadComplete_Func(const FGuid& DownloadId)
-{
-	OnDownloadComplete.Broadcast(DownloadId);
-}
-
-void UPulseDownloadEventListener::OnDownloadPaused_Func(const FGuid& DownloadId)
-{
-	OnDownloadPaused.Broadcast(DownloadId);
-}
-
-void UPulseDownloadEventListener::OnDownloadReadyToStart_Func(const FGuid& DownloadId)
-{
-	OnDownloadReadyToStart.Broadcast(DownloadId);
-}
-
-void UPulseDownloadEventListener::OnDownloadQueued_Func(const FGuid& DownloadId)
-{
-	OnDownloadQueued.Broadcast(DownloadId);
-}
-
-void UPulseDownloadEventListener::OnDownloadResumedOrStarted_Func(const FGuid& DownloadId)
-{
-	OnDownloadResumedOrStarted.Broadcast(DownloadId);
-}
-
-void UPulseDownloadEventListener::OnDownloadOnGoing_Func(const FGuid& DownloadId)
-{
-	OnDownloadOnGoing.Broadcast(DownloadId);
-}
-
-void UPulseDownloadEventListener::OnDownloadCancelled_Func(const FGuid& DownloadId)
-{
-	OnDownloadCancelled.Broadcast(DownloadId);
 }

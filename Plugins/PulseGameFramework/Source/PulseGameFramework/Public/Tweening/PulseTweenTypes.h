@@ -968,3 +968,9 @@ public:
 		return idx;
 	}
 };
+
+
+
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FTweenUpdateEvent, float, Value, float, Percentage);
+
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FTweenIDTriggerEvent, TSet<FGuid>, TweenUIDSet);

@@ -10,9 +10,6 @@
 #include "PulseDownloader.generated.h"
 
 
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FPulseDownloadDelegateEvent, const FGuid&, DownloadId);
-
-
 
 /**
  * The Pulse downloader Game Instance Sub-System to download files from the internet using HTTP direct links.
@@ -44,7 +41,7 @@ protected:
 	
 	static void DownloadTask(const FGuid& DownloadId, int32 MBChunkSize);
 
-	void BroadcastDownloadEvent(const FGuid& DownloadId, EDownloadState EventType);
+	void BroadcastDownloadEvent(const FGuid& DownloadId, EPulseDownloadState EventType);
 
 	static void OnReceiveDownloadInfos(const FGuid& DownloadId, FString FileName, bool Succeeded, int64 FileSize);
 	
@@ -140,7 +137,7 @@ public:
 
 	// Get the state of a download by ID
 	UFUNCTION(BlueprintPure, Category="Pulse Download")
-	bool GetDownloadState(const FGuid& DownloadId, EDownloadState& OutState) const;
+	bool GetDownloadState(const FGuid& DownloadId, EPulseDownloadState& OutState) const;
 
 	// Get expected byte size of the file to download or the size of the downloaded file if completed.
 	UFUNCTION(BlueprintPure, Category="Pulse Download")
@@ -186,59 +183,4 @@ public:
 
 	UFUNCTION(BlueprintPure, Category="Pulse Download")
 	static FString ToString(const FDownloadIdentifier& Identifier);
-};
-
-
-/**
- * @brief Utility object to easily handle Download events in blueprint.
- */
-UCLASS(NotBlueprintable, BlueprintType)
-class UPulseDownloadEventListener : public UObject
-{
-	GENERATED_BODY()
-	
-	public:
-	
-	virtual void PostInitProperties() override;
-	virtual void BeginDestroy() override;
-
-protected:
-
-	UFUNCTION() void OnDownloadComplete_Func(const FGuid& DownloadId);
-	UFUNCTION() void OnDownloadPaused_Func(const FGuid& DownloadId);
-	UFUNCTION() void OnDownloadReadyToStart_Func(const FGuid& DownloadId);
-	UFUNCTION() void OnDownloadQueued_Func(const FGuid& DownloadId);
-	UFUNCTION() void OnDownloadResumedOrStarted_Func(const FGuid& DownloadId);
-	UFUNCTION() void OnDownloadOnGoing_Func(const FGuid& DownloadId);
-	UFUNCTION() void OnDownloadCancelled_Func(const FGuid& DownloadId);
-
-public:
-
-	// Triggerred when a download is completed or failed. It broadcast the UID of the download.
-	UPROPERTY(BlueprintAssignable, Category="Pulse Download")
-	FPulseDownloadDelegateEvent OnDownloadComplete;
-
-	// Triggerred when a download is Paused. It broadcast the UID of the download.
-	UPROPERTY(BlueprintAssignable, Category="Pulse Download")
-	FPulseDownloadDelegateEvent OnDownloadPaused;
-
-	// Triggerred when a download is Ready to be started. It broadcast the UID of the download.
-	UPROPERTY(BlueprintAssignable, Category="Pulse Download")
-	FPulseDownloadDelegateEvent OnDownloadReadyToStart;
-
-	// Triggerred when a download has been put on Queue, thus not ready to be downloaded. It broadcast the UID of the download.
-	UPROPERTY(BlueprintAssignable, Category="Pulse Download")
-	FPulseDownloadDelegateEvent OnDownloadQueued;
-
-	// Triggerred when a download has been started or resumed. It broadcast the UID of the download.
-	UPROPERTY(BlueprintAssignable, Category="Pulse Download")
-	FPulseDownloadDelegateEvent OnDownloadResumedOrStarted;
-
-	// Triggerred when a download receive new bytes from the server. It broadcast the UID of the download.
-	UPROPERTY(BlueprintAssignable, Category="Pulse Download")
-	FPulseDownloadDelegateEvent OnDownloadOnGoing;
-
-	// Triggerred when a download is Cancelled by the user. It broadcast the UID of the download.
-	UPROPERTY(BlueprintAssignable, Category="Pulse Download")
-	FPulseDownloadDelegateEvent OnDownloadCancelled;
 };

@@ -8,160 +8,6 @@
 #include "Kismet/GameplayStatics.h"
 
 
-void UBaseUserProfileProvider::Initialize()
-{
-	OnInitialized();
-}
-
-void UBaseUserProfileProvider::SessionCreation()
-{
-	OnSessionCreation();
-}
-
-void UBaseUserProfileProvider::SessionLoaded(UUserProfileSessionSave* SessionFile)
-{
-	if (!SessionFile)
-		return;
-	OnSessionLoaded(SessionFile);
-}
-
-void UBaseUserProfileProvider::Deinitialize()
-{
-	OnDeinitialized();
-}
-
-void UBaseUserProfileProvider::OnInitialized_Implementation()
-{
-}
-
-void UBaseUserProfileProvider::OnSessionCreation_Implementation()
-{
-}
-
-void UBaseUserProfileProvider::OnSessionLoaded_Implementation(UUserProfileSessionSave* SessionFile)
-{
-}
-
-void UBaseUserProfileProvider::OnDeinitialized_Implementation()
-{
-}
-
-void UBaseUserProfileProvider::QueryUser(const FString& LocalUserID, const TArray<FString>& RequestParams)
-{
-	ProviderStatus = EUserProfileProcessStatus::QueryingUser;
-	_targetUserLocalID = LocalUserID;
-	OnProviderStatusChanged.Broadcast();
-	OnQueryUser(LocalUserID, RequestParams);
-}
-
-void UBaseUserProfileProvider::OnQueryUser_Implementation(const FString& LocalUserID, const TArray<FString>& RequestParams)
-{
-	StopAsyncRequest(false, "", 0, {});
-}
-
-void UBaseUserProfileProvider::SyncUserProfileData(const FString& LocalUserID, const FUserProfileData& UserData)
-{
-	ProviderStatus = EUserProfileProcessStatus::SyncingUser;
-	_targetUserLocalID = LocalUserID;
-	OnProviderStatusChanged.Broadcast();
-	OnTryUserDataSynchro(LocalUserID, UserData);
-}
-
-void UBaseUserProfileProvider::UploadUserLog(const FString& LocalUserID, const FUserLogs& UserLogs)
-{
-	OnTryUserLogsUpload(LocalUserID, UserLogs);
-}
-
-void UBaseUserProfileProvider::UploadUserAnalytics(const FString& LocalUserID, const FUserAnalytics& UserAnalytics)
-{
-	OnTryUserAnalyticUpload(LocalUserID, UserAnalytics);
-}
-
-
-void UBaseUserProfileProvider::OnTryUserDataSynchro_Implementation(const FString& LocalUserID, const FUserProfileData& UserData)
-{
-	StopAsyncRequest(false, "", 0, {});
-}
-
-void UBaseUserProfileProvider::OnTryUserLogsUpload_Implementation(const FString& LocalUserID, const FUserLogs& UserLogs)
-{
-	StopAsyncRequest(false, "", 0, {});
-}
-
-void UBaseUserProfileProvider::OnTryUserAnalyticUpload_Implementation(const FString& LocalUserID, const FUserAnalytics& UserAnalytics)
-{
-	StopAsyncRequest(false, "", 0, {});
-}
-
-FText UBaseUserProfileProvider::ResponseCodeMessage_Implementation(int32 ResponseCode)
-{
-	return {};
-}
-
-void UBaseUserProfileProvider::StopAsyncRequest(bool RequestSucceeded, FString UID, int32 ResponseCode, const FUserProfileData& ProfileData, const FString& Token)
-{
-	const auto lastStatus = ProviderStatus;
-	ProviderStatus = EUserProfileProcessStatus::Idle;
-	OnProviderStatusChanged.Broadcast();
-	OnAsyncRequestCompleted.Broadcast(lastStatus, _targetUserLocalID, UID, RequestSucceeded, ResponseCode, ProfileData);
-	if (RequestSucceeded)
-	{
-		switch (lastStatus)
-		{
-		case EUserProfileProcessStatus::QueryingUser:
-			{
-				SetUserToken(_targetUserLocalID, Token);
-				OnQueryUserRequestSucceed.Broadcast(lastStatus, _targetUserLocalID, UID, RequestSucceeded, ResponseCode, ProfileData);
-			}
-			break;
-		case EUserProfileProcessStatus::SyncingUser:
-			OnSyncUserRequestSucceed.Broadcast(lastStatus, _targetUserLocalID, UID, RequestSucceeded, ResponseCode, ProfileData);
-			break;
-		default:
-			break;
-		}
-	}
-	_targetUserLocalID = "";
-}
-
-FString UBaseUserProfileProvider::GetUserToken(const FString& UserLocalID)
-{
-	if (!_perUserToken.Contains(UserLocalID))
-		return "";
-	return _perUserToken[UserLocalID];
-}
-
-bool UBaseUserProfileProvider::GetOpUserProfileData(FUserProfileData& OutProfileData) const
-{
-	OutProfileData = {};
-	if (_targetUserLocalID.IsEmpty())
-		return false;
-	if (const auto mgr = UPulseUserProfile::Get())
-	{
-		if (mgr->IsPendingNewUserQuery(_targetUserLocalID, OutProfileData))
-			return true;
-		FUserProfile Profile;
-		if (!mgr->GetUserProfile(_targetUserLocalID, Profile))
-			return false;
-		OutProfileData = Profile.ProfileData;
-		return true;
-	}
-	return false;
-}
-
-void UBaseUserProfileProvider::SetUserToken(const FString& UserLocalID, const FString& Token)
-{
-	if (!_perUserToken.Contains(UserLocalID))
-		_perUserToken.Add(UserLocalID, Token);
-	else
-		_perUserToken[UserLocalID] = Token;
-}
-
-TArray<FString> UBaseUserProfileProvider::TryGetQueryParamsFromToken_Implementation(const FString& UserLocalID)
-{
-	return {};
-}
-
 
 UPulseUserProfile* UPulseUserProfile::Get()
 {
@@ -283,7 +129,7 @@ EUserProfileProcessStatus UPulseUserProfile::GetUserProfileStatus_Internal() con
 	return status;
 }
 
-UBaseUserProfileProvider* UPulseUserProfile::GetUserProfileProvider_Internal() const
+UBasePulseUserProfileProvider* UPulseUserProfile::GetUserProfileProvider_Internal() const
 {
 	if (_currentProfileProvider)
 		return _currentProfileProvider;
@@ -334,7 +180,7 @@ bool UPulseUserProfile::GetUserProfilesList(TArray<FString>& OutUserLocalIDs) co
 	return GetUserProfileList_Internal(OutUserLocalIDs);
 }
 
-UBaseUserProfileProvider* UPulseUserProfile::GetUserProfileProvider() const
+UBasePulseUserProfileProvider* UPulseUserProfile::GetUserProfileProvider() const
 {
 	return GetUserProfileProvider_Internal();
 }
@@ -513,7 +359,7 @@ void UPulseUserProfile::SetCurrentProvider_Internal(TSubclassOf<UObject> NewProv
 		OnUserProviderPreChanged.Broadcast();
 	_currentProfileProvider = nullptr;
 	if (NewProviderClass)
-		_currentProfileProvider = NewObject<UBaseUserProfileProvider>((UObject*)GetTransientPackage(), NewProviderClass);
+		_currentProfileProvider = NewObject<UBasePulseUserProfileProvider>((UObject*)GetTransientPackage(), NewProviderClass);
 	if (_currentProfileProvider)
 	{
 		_currentProfileProvider->OnQueryUserRequestSucceed.AddDynamic(this, &UPulseUserProfile::OnProviderQueryUserCompleted);
@@ -608,138 +454,4 @@ bool UPulseUserProfile::GetUserLoginStatus_Internal(const FString& LocalUserID, 
 		return false;
 	OutStatus = _userProfiles[LocalUserID].Status;
 	return true;
-}
-
-
-
-
-void UPulseUserProfileEventListener::PostInitProperties()
-{
-	Super::PostInitProperties();
-	const auto userSubSystem = UPulseUserProfile::Get();
-	if (!userSubSystem)
-		return;
-	userSubSystem->OnSessionSaved.AddDynamic(this, &UPulseUserProfileEventListener::OnSessionSaved_Func);
-	userSubSystem->OnSessionLoaded.AddDynamic(this, &UPulseUserProfileEventListener::OnSessionSaved_Func);
-	userSubSystem->OnSessionCreation.AddDynamic(this, &UPulseUserProfileEventListener::OnSessionSaved_Func);
-	userSubSystem->OnUserQuerySucceed.AddDynamic(this, &UPulseUserProfileEventListener::OnUserQuerySucceed_Func);
-	userSubSystem->OnUserSyncSucceed.AddDynamic(this, &UPulseUserProfileEventListener::OnUserSyncSucceed_Func);
-	userSubSystem->OnUserProviderPreChanged.AddDynamic(this, &UPulseUserProfileEventListener::OnUserProviderPreChanged_Func);
-	userSubSystem->OnUserProviderPostChanged.AddDynamic(this, &UPulseUserProfileEventListener::OnUserProviderChanged_Func);
-	userSubSystem->OnUserAdded.AddDynamic(this, &UPulseUserProfileEventListener::OnUserAdded_Func);
-	userSubSystem->OnUserUpdated.AddDynamic(this, &UPulseUserProfileEventListener::OnUserUpdated_Func);
-	userSubSystem->OnUserDeleted.AddDynamic(this, &UPulseUserProfileEventListener::OnUserDeleted_Func);
-	userSubSystem->OnCurrentUserChanged.AddDynamic(this, &UPulseUserProfileEventListener::OnCurrentUserChanged_Func);
-	userSubSystem->OnSystemStatusChanged.AddDynamic(this, &UPulseUserProfileEventListener::OnSystemStatusChanged_Func);
-	BindCurrentProvider();
-}
-
-void UPulseUserProfileEventListener::BeginDestroy()
-{
-	Super::BeginDestroy();
-	UnBindCurrentProvider();
-	const auto userSubSystem = UPulseUserProfile::Get();
-	if (!userSubSystem)
-		return;
-	userSubSystem->OnSessionSaved.RemoveDynamic(this, &UPulseUserProfileEventListener::OnSessionSaved_Func);
-	userSubSystem->OnSessionLoaded.RemoveDynamic(this, &UPulseUserProfileEventListener::OnSessionSaved_Func);
-	userSubSystem->OnSessionCreation.RemoveDynamic(this, &UPulseUserProfileEventListener::OnSessionSaved_Func);
-	userSubSystem->OnUserQuerySucceed.RemoveDynamic(this, &UPulseUserProfileEventListener::OnUserQuerySucceed_Func);
-	userSubSystem->OnUserSyncSucceed.RemoveDynamic(this, &UPulseUserProfileEventListener::OnUserSyncSucceed_Func);
-	userSubSystem->OnUserProviderPreChanged.RemoveDynamic(this, &UPulseUserProfileEventListener::OnUserProviderPreChanged_Func);
-	userSubSystem->OnUserProviderPostChanged.RemoveDynamic(this, &UPulseUserProfileEventListener::OnUserProviderChanged_Func);
-	userSubSystem->OnUserAdded.RemoveDynamic(this, &UPulseUserProfileEventListener::OnUserAdded_Func);
-	userSubSystem->OnUserUpdated.RemoveDynamic(this, &UPulseUserProfileEventListener::OnUserUpdated_Func);
-	userSubSystem->OnUserDeleted.RemoveDynamic(this, &UPulseUserProfileEventListener::OnUserDeleted_Func);
-	userSubSystem->OnCurrentUserChanged.RemoveDynamic(this, &UPulseUserProfileEventListener::OnCurrentUserChanged_Func);
-	userSubSystem->OnSystemStatusChanged.RemoveDynamic(this, &UPulseUserProfileEventListener::OnSystemStatusChanged_Func);
-}
-
-void UPulseUserProfileEventListener::BindCurrentProvider()
-{
-	const auto userSubSystem = UPulseUserProfile::Get();
-	if (!userSubSystem)
-		return;
-	if (auto provider = userSubSystem->GetUserProfileProvider())
-	{
-		provider->OnAsyncRequestCompleted.AddDynamic(this, &UPulseUserProfileEventListener::OnProviderAsyncRequestCompleted_Func);
-	}
-}
-
-void UPulseUserProfileEventListener::UnBindCurrentProvider()
-{
-	const auto userSubSystem = UPulseUserProfile::Get();
-	if (!userSubSystem)
-		return;
-	if (auto provider = userSubSystem->GetUserProfileProvider())
-	{
-		provider->OnAsyncRequestCompleted.RemoveDynamic(this, &UPulseUserProfileEventListener::OnProviderAsyncRequestCompleted_Func);
-	}
-}
-
-void UPulseUserProfileEventListener::OnSessionSaved_Func()
-{
-	OnSessionSaved.Broadcast();
-}
-
-void UPulseUserProfileEventListener::OnSessionLoaded_Func()
-{
-	OnSessionLoaded.Broadcast();
-}
-
-void UPulseUserProfileEventListener::OnSessionCreation_Func()
-{
-	OnSessionCreation.Broadcast();
-}
-
-void UPulseUserProfileEventListener::OnUserQuerySucceed_Func(const FString& LocalUserID, bool IsCurrentUser)
-{
-	OnUserQuerySucceed.Broadcast(LocalUserID, IsCurrentUser);
-}
-
-void UPulseUserProfileEventListener::OnUserSyncSucceed_Func(const FString& LocalUserID, bool IsCurrentUser)
-{
-	OnUserSyncSucceed.Broadcast(LocalUserID, IsCurrentUser);
-}
-
-void UPulseUserProfileEventListener::OnUserProviderPreChanged_Func()
-{
-	UnBindCurrentProvider();
-}
-
-void UPulseUserProfileEventListener::OnUserProviderChanged_Func()
-{
-	BindCurrentProvider();
-	OnUserProviderChanged.Broadcast();
-}
-
-void UPulseUserProfileEventListener::OnUserAdded_Func(const FString& LocalUID)
-{
-	OnUserAdded.Broadcast(LocalUID);
-}
-
-void UPulseUserProfileEventListener::OnUserUpdated_Func(const FString& LocalUID)
-{
-	OnUserUpdated.Broadcast(LocalUID);
-}
-
-void UPulseUserProfileEventListener::OnUserDeleted_Func(const FString& LocalUID)
-{
-	OnUserDeleted.Broadcast(LocalUID);
-}
-
-void UPulseUserProfileEventListener::OnCurrentUserChanged_Func(const FString& LocalUID)
-{
-	OnCurrentUserChanged.Broadcast(LocalUID);
-}
-
-void UPulseUserProfileEventListener::OnSystemStatusChanged_Func(EUserProfileProcessStatus LastStatus, EUserProfileProcessStatus NewStatus)
-{
-	OnSystemStatusChanged.Broadcast(LastStatus, NewStatus);
-}
-
-void UPulseUserProfileEventListener::OnProviderAsyncRequestCompleted_Func(const EUserProfileProcessStatus& RequestType, const FString& LocalID, const FString& UID, bool Success,
-	int32 ResponseCode, const FUserProfileData& ProfileData)
-{
-	OnProviderAsyncRequestCompleted.Broadcast(RequestType, LocalID, UID, Success, ResponseCode, ProfileData);
 }

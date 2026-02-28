@@ -5,7 +5,7 @@
 #include "Core/PulseSystemLibrary.h"
 #include "Core/AssetManager/PulseAssetManager.h"
 #include "Core/AssetManager/Types/Character/BasePulseCharacterAsset.h"
-#include "Core/SaveGame/PulseSaveManager.h"
+#include "SaveGame/PulseSaveManager.h"
 
 
 bool UCharactersSavedObject::TryReadCharacterSavedData(UObject* WorldContextObject, TSubclassOf<UBasePulseCharacterAsset> Type, const int32 CharacterId,

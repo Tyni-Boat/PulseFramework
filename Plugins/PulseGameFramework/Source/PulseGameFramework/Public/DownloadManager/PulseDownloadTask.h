@@ -41,7 +41,7 @@ public:
 	int32 ParallelChunkCount = 1;
 	
 	UPROPERTY(SkipSerialization)
-	EDownloadState DownloadState = EDownloadState::None;
+	EPulseDownloadState DownloadState = EPulseDownloadState::None;
 	
 	UPROPERTY(SkipSerialization)
 	bool bIsInfosRequestOngoing = false;

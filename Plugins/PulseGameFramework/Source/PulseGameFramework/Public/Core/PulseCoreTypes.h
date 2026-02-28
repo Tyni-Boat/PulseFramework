@@ -230,7 +230,7 @@ class UCoreProjectSetting : public UDeveloperSettings
 public:
 #pragma region User Profile
 
-	UPROPERTY(EditAnywhere, Config, Category = "User Profile", meta=(AllowedClasses = "/Script/PulseGameFramework.BaseUserProfileProvider"))
+	UPROPERTY(EditAnywhere, Config, Category = "User Profile", meta=(AllowedClasses = "/Script/PulseGameFramework.BasePulseUserProfileProvider"))
 	TSubclassOf<UObject> UserProfileProviderClass;
 
 #pragma endregion
@@ -351,19 +351,12 @@ public:
 
 	UPROPERTY(EditAnywhere, Config, Category = "Network Manager|Replication")
 	bool bNetworkManagerAlwaysRelevant = true;
-
-	UPROPERTY(EditAnywhere, Config, Category = "Network Manager|Replication")
-	bool bConserveDisconnecterPlayerNetProxies = false;
 	
 	UPROPERTY(EditAnywhere, Config, Category = "Network Manager|Replication")
 	float NetUpdateFrequency = 100.0f;
 	
 	UPROPERTY(EditAnywhere, Config, Category = "Network Manager|Replication")
 	float NetPriority = 2.8f;
-
-	// Look up for player connection/disconnection every X frames.
-	UPROPERTY(EditAnywhere, Config, Category = "Network Manager|Replication")
-	int32 NetCheckFrameInterval = 5;
 	
 #pragma endregion
 

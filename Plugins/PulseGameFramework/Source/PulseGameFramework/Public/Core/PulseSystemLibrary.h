@@ -96,6 +96,12 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "PulseCore|Tools|Actors")
 	static bool RemoveComponentAtRuntime(AActor* Actor, UActorComponent* Component);
 
+	// Execute the delegate for every actor of class, that match condition; found in the world.
+	static void ForeachActorClass(const UObject* WorldContext,  TSubclassOf<AActor> Class, TFunction<void(AActor*)> Action, TFunction<bool(AActor*)> Condition = nullptr);
+	
+	// Execute the delegate for every actor of class, that match condition; found in the world.
+	static void ForeachActorInterface(const UObject* WorldContext,  TSubclassOf<UInterface> Interface, TFunction<void(AActor*)> Action, TFunction<bool(AActor*)> Condition = nullptr);
+
 
 	// Serialize an object to byte array
 	UFUNCTION(BlueprintCallable, Category = "PulseCore|Tools|Serialization")
@@ -154,7 +160,6 @@ public:
 	static FString FileSizeToString(const int64& ByteSize);
 
 
-	
 	// Get the byte size to string.
 	UFUNCTION(BlueprintPure, Category = "PulseCore|Tools|Text")
 	static bool TextRegex(const FString& InText, const FString& Regex);
@@ -359,7 +364,7 @@ public:
 		if (!Collection.IsValidIndex(Index))
 			return -1;
 		float unit = 1.0f / Collection.Num();
-		return unit * (Index + (IncludeIndexUnitPercentage? 1 : 0));
+		return unit * (Index + (IncludeIndexUnitPercentage ? 1 : 0));
 	}
 
 	template <typename T, typename Q>

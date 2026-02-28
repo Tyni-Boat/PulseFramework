@@ -330,10 +330,10 @@ void UPulseDownloadTask::OnChunkFailed(UPulseDownloadChunk* Chunk)
 	default:
 		OnTaskFailed.Broadcast(this);
 		break;
-	case EDownloadState::Paused:
+	case EPulseDownloadState::Paused:
 		OnTaskPaused.Broadcast(this);
 		break;
-	case EDownloadState::Cancelled:
+	case EPulseDownloadState::Cancelled:
 		OnTaskCancelled.Broadcast(this);
 		break;
 	}
