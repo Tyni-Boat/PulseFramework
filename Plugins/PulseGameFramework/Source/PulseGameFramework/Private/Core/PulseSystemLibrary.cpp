@@ -260,10 +260,10 @@ bool UPulseSystemLibrary::EnableActor(AActor* Actor, bool Enable)
 	{
 		if (!comp)
 			continue;
-		//if (Enable)
-		//	comp->Activate();
-		//else
-		//	comp->Deactivate();
+		// if (Enable)
+		// 	comp->Activate();
+		// else
+		// 	comp->Deactivate();
 		//comp->SetActiveFlag(Enable);
 		if (USceneComponent* SceneComp = Cast<USceneComponent>(comp))
 		{
@@ -271,7 +271,17 @@ bool UPulseSystemLibrary::EnableActor(AActor* Actor, bool Enable)
 			if (UPrimitiveComponent* PrimComp = Cast<UPrimitiveComponent>(SceneComp))
 			{
 				//PrimComp->SetCollisionEnabled(Enable ? ECollisionEnabled::QueryAndPhysics : ECollisionEnabled::NoCollision);
-				//PrimComp->SetSimulatePhysics(Enable);
+				bool simPhysicTag = PrimComp->ComponentHasTag("PulseCompSimulatePhysic");
+				bool simPhysic = PrimComp->IsSimulatingPhysics();
+				if (!Enable && simPhysic)
+				{
+					PrimComp->SetSimulatePhysics(false);
+					PrimComp->ComponentTags.Add("PulseCompSimulatePhysic");
+				}else if (Enable && simPhysicTag)
+				{
+					PrimComp->SetSimulatePhysics(true);
+					PrimComp->ComponentTags.Remove("PulseCompSimulatePhysic");					
+				}
 				PrimComp->SetPhysicsLinearVelocity(FVector::ZeroVector, false);
 				PrimComp->SetPhysicsAngularVelocityInDegrees(FVector::ZeroVector, false);
 			}

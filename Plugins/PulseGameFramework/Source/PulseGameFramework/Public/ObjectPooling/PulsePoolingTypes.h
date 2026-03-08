@@ -6,7 +6,6 @@
 #include "PulsePoolingTypes.generated.h"
 
 
-
 UENUM(BlueprintType)
 enum class EPoolQueryResult : uint8
 {
@@ -14,9 +13,9 @@ enum class EPoolQueryResult : uint8
 	Success = 1 UMETA(DisplayName = "Success"),
 	InvalidParams = 2 UMETA(DisplayName = "Invalid Params"),
 	PoolLimitReached = 3 UMETA(DisplayName = "The pool reached its limit"),
-	BadOrNullObjectClass = 4 UMETA(DisplayName = "The class query is Bad"),
-	UnableToTransferOwnership = 5 UMETA(DisplayName = "The class query is Bad"),
-	ProhibitedOnClient = 6 UMETA(DisplayName = "The class query is Bad"),
+	BadOrNullObjectClass = 4 UMETA(DisplayName = "The Object Class Is Bad or Null"),
+	UnableToTransferOwnership = 5 UMETA(DisplayName = "Cannot Transfer Ownership"),
+	ProhibitedOnClient = 6 UMETA(DisplayName = "Prohibited On Client"),
 	Undefined = 7 UMETA(DisplayName = "Unknow error happened")
 };
 
@@ -26,7 +25,6 @@ struct PULSEGAMEFRAMEWORK_API FPoolingParams
 	GENERATED_BODY()
 
 public:
-
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Pooling System")
 	TArray<FTransform> TransformParams;
 
@@ -55,19 +53,108 @@ public:
 };
 
 
-USTRUCT(BlueprintType)
+USTRUCT(NotBlueprintType)
 struct PULSEGAMEFRAMEWORK_API FPoolingTypeObjects
 {
 	GENERATED_BODY()
 
+private:
+	
+	UPROPERTY()
+	TArray<TObjectPtr<UObject>> ObjectSet;
+
 public:
+	
+	FPoolingTypeObjects() { ObjectSet = {}; }
 
-	FPoolingTypeObjects() { ObjectArray = {}; }
+	FPoolingTypeObjects(TArray<UObject*> array)
+	{
+		ObjectSet.Empty();
+		for (UObject* obj : array)
+			ObjectSet.AddUnique(obj);
+	}
 
-	FPoolingTypeObjects(TArray<TObjectPtr<UObject>>  array) { ObjectArray = array; }
+	bool IsValid() const { return !ObjectSet.IsEmpty() && ObjectSet[0]; }
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Pooling System")
-	TArray<TObjectPtr<UObject>> ObjectArray;
+	int32 Count() const { return ObjectSet.Num(); }
 
-	bool IsValid() const { return !ObjectArray.IsEmpty(); }
+	UObject* GetFirst() const
+	{
+		if (!IsValid())
+			return nullptr;
+		return ObjectSet[0].Get();
+	}
+
+	bool Contains(UObject* obj) const { return ObjectSet.Contains(obj); }
+
+	bool Add(UObject* obj)
+	{
+		ObjectSet.AddUnique(obj);
+		return true;
+	}
+
+	bool Remove(UObject* obj)
+	{
+		const int32 remCount = ObjectSet.Remove(obj);
+		return remCount > 0;
+	}
+
+	bool Replace(UObject* Old, UObject* New, bool bAddIfNotExist = true)
+	{
+		if (!ObjectSet.Contains(Old))
+		{
+			if (!bAddIfNotExist)
+				return false;
+			if (!New)
+				return false;
+			ObjectSet.Add(New);
+			return true;
+		}
+		ObjectSet.Remove(Old);
+		if (New)
+			ObjectSet.AddUnique(New);
+		return true;
+	}
+
+	void Clean(bool bDestroy = false)
+	{
+		const auto array = ObjectSet;
+		for (auto obj : array)
+		{
+			if (obj)
+			{
+				if (bDestroy)
+				{
+					if (auto asActor = Cast<AActor>(obj))
+						asActor->Destroy();
+					else if (auto asComponent = Cast<UActorComponent>(obj))
+						asComponent->ConditionalBeginDestroy();
+					else
+						obj->MarkAsGarbage();
+					ObjectSet.Remove(obj);
+				}
+				continue;
+			}
+			ObjectSet.Remove(obj);
+		}
+		if (bDestroy)
+			ObjectSet.Empty();
+	}
+
+	void ForAllValid(TFunction<void(UObject*)> Action)
+	{
+		if (!Action)
+			return;
+		const auto array = ObjectSet;
+		for (auto obj : array)
+		{
+			if (!obj)
+				continue;
+			Action(obj.Get());
+		}
+	}
 };
+
+
+
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FPulsePoolingEvent, TSubclassOf<UObject>, Type);

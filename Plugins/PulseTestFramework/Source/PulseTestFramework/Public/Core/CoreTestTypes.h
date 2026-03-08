@@ -1,7 +1,7 @@
 // Copyright © by Tyni Boat. All Rights Reserved.
 
 #pragma once
-#include "Core/AssetManager/Types/Character/BasePulseCharacterAsset.h"
+#include "AssetManager/Types/Character/BasePulseCharacterAsset.h"
 #include "CoreTestTypes.generated.h"
 
 

@@ -19,26 +19,47 @@ class PULSEGAMEFRAMEWORK_API UPulseObjectPooling : public UWorldSubsystem, publi
 	
 private:
 	UPROPERTY()
-	TMap<TSoftClassPtr<UObject>, FPoolingTypeObjects> PoolingLiveObjectMap;
+	TMap<TSubclassOf<UObject>, FPoolingTypeObjects> PoolingLiveObjectMap;
 	UPROPERTY()
-	TMap<TSoftClassPtr<UObject>, FPoolingTypeObjects> PoolingDormantObjectMap;
+	TMap<TSubclassOf<UObject>, FPoolingTypeObjects> PoolingDormantObjectMap;
 	UPROPERTY()
-	TMap<TSoftClassPtr<UObject>, int32> PerClassPoolLimit;
+	TMap<TSubclassOf<UObject>, int32> PerClassPoolLimit;
 	UPROPERTY()
 	TMap<TWeakObjectPtr<AActor>, FPoolingTypeObjects> _linkedPoolObjectActors;
 	int32 _globalPoolLimit = 100;
 	FName _poolRepTag = "PulseCore.Pooling";
+	FDelegateHandle _DeleteDelegate;
+	FDelegateHandle _DuplicateDelegate;
 	
 public:
+
+	// Called when an object pooling triggered a new object creation 
+	UPROPERTY(BlueprintAssignable, Category="Pooling")
+	FPulsePoolingEvent OnPoolCreationQuery;
+	
+	// Called when an object was pooled out 
+	UPROPERTY(BlueprintAssignable, Category="Pooling")
+	FPulsePoolingEvent OnPoolQuery;
+	
+	// Called when an object was disposed 
+	UPROPERTY(BlueprintAssignable, Category="Pooling")
+	FPulsePoolingEvent OnPoolDisposed;
+	
+	// Called when a type of object is no longer among actives or inactives.  
+	UPROPERTY(BlueprintAssignable, Category="Pooling")
+	FPulsePoolingEvent OnPoolCleared;
+
+	
 	virtual void Initialize(FSubsystemCollectionBase& Collection) override;
 	virtual void Deinitialize() override;
+
 
 protected:
 	
 	virtual bool DoesSupportWorldType(const EWorldType::Type WorldType) const override;
 
 	// Function to create a new object of the specified class
-	UObject* CreateNewObject(TSoftClassPtr<UObject> ObjectClass, UObject* Outer = nullptr);
+	UObject* CreateNewObject(TSubclassOf<UObject> ObjectClass, UObject* Outer = nullptr);
 
 	// Function to move an object from the dormant pool to the live pool
 	void MoveObjectToLivePool(TObjectPtr<UObject> Object);
@@ -47,10 +68,16 @@ protected:
 	void MoveObjectToDormantPool(TObjectPtr<UObject> Object);
 
 	// Function to remove an now invalid objects from the pools
-	void CleanUpPools(TSoftClassPtr<UObject> Class);
+	void CleanUpPools(TObjectPtr<UClass> Class);
 
 	UFUNCTION()
 	void OnDestroyLinkedActor_Internal(AActor* Actor);
+	
+	void OnObjectsReplaced_Internal(const TMap<UObject*, UObject*>& ReplacementMap);
+	
+	void OnGCPreDestroy_Internal();
+	
+	EPoolQueryResult DisposeObject_Internal(UObject* Object);
 
 public:
 
@@ -68,7 +95,7 @@ public:
 
 	// Preload objects of the specified class into the pool. Only the first array element of a set class are preloaded. Those are automatically set dormants
 	UFUNCTION(BlueprintCallable, Category = "PulseCore|Pooling")
-	void PreFillPool(TArray<TSoftClassPtr<UObject>> ObjectClasses, int32 CountPerObject = 5);
+	void PreFillPool(TArray<TSubclassOf<UClass>> ObjectClasses, int32 CountPerObject = 5);
 
 	// Function to return an object to the pool
 	UFUNCTION(BlueprintCallable, Category = "PulseCore|Pooling")
@@ -77,7 +104,7 @@ public:
 
 	// Function to clear the pool form the specified class
 	UFUNCTION(BlueprintCallable, Category = "PulseCore|Pooling")
-	void ClearPoolType(TSoftClassPtr<UObject> ObjectClass);
+	void ClearPoolType(TSubclassOf<UObject> ObjectClass);
 
 	// Function to clear the entire pool
 	UFUNCTION(BlueprintCallable, Category = "PulseCore|Pooling")
@@ -86,12 +113,20 @@ public:
 	// Function to Limit the number of objects in the pool for a specific class. Setting the limit to <= 0 will remove the limit for that class.
 	// Note: This will not affect the already existing objects in the pool, only the new ones created after setting the limit.
 	UFUNCTION(BlueprintCallable, Category = "PulseCore|Pooling", meta = (AdvancedDisplay = 2))
-	void AffectObjectTypePoolLimit(TSoftClassPtr<UObject> ObjectClass, int32 PoolLimit, ENumericOperator Operation = ENumericOperator::Set);
+	void AffectObjectTypePoolLimit(TSubclassOf<UObject> ObjectClass, int32 PoolLimit, ENumericOperator Operation = ENumericOperator::Set);
 
 	// Function to Limit the number of objects in the pool for unspecified classes. Setting the limit to <= 0 will remove the limit..
 	// Note: This will not affect the already existing objects in the pool, only the new ones created after setting the limit.
 	UFUNCTION(BlueprintCallable, Category = "PulseCore|Pooling", meta = (AdvancedDisplay = 2))
 	void AffectGlobalObjectPoolLimit(int32 PoolLimit, ENumericOperator Operation = ENumericOperator::Set);
+
+	// Get all classes in pool with their respective pool limit.
+	UFUNCTION(BlueprintPure, Category = "PulseCore|Pooling", meta = (AdvancedDisplay = 2))
+	void GetPoolClasses(TMap<TSubclassOf<UObject>, int32>& OutClasses);
+
+	// Get class count in pool
+	UFUNCTION(BlueprintPure, Category = "PulseCore|Pooling", meta = (AdvancedDisplay = 2))
+	void GetPoolClassCount(TSubclassOf<UObject> Class, int32& OutActiveCount, int32& OutInactiveCount);
 
 	// Function debug the pooling system, it will print the current state of the pool to the screen. Use Log param to also print into the log
 	UFUNCTION(BlueprintCallable, Category = "PulseCore|Pooling", meta = (WorldContext = "WorldContext", AdvancedDisplay = 1))

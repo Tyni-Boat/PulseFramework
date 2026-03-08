@@ -26,19 +26,18 @@ public:
 
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Pooling System")
 	bool OnPoolQuery(const FPoolingParams SpawnData);
-
 	virtual bool OnPoolQuery_Implementation(const FPoolingParams SpawnData);
 
 
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Pooling System")
 	void OnPoolDispose();
-
 	virtual void OnPoolDispose_Implementation();
+
 	
 	EPoolQueryResult Dispose();
 
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Pooling System")
 	EPoolQueryResult DisposeToPool();
-
 	virtual EPoolQueryResult DisposeToPool_Implementation();
+
 };
