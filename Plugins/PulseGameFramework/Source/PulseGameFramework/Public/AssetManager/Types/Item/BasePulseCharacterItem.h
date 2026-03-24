@@ -12,7 +12,7 @@
 /**
  * Serve as a base class for all character item (weapon, armor, etc..) game Data types
  */
-UCLASS(Abstract, BlueprintType, Blueprintable)
+UCLASS(BlueprintType, Blueprintable)
 class PULSEGAMEFRAMEWORK_API UBasePulseCharacterItem : public UBasePulseBaseItemAsset
 {
 	GENERATED_BODY()

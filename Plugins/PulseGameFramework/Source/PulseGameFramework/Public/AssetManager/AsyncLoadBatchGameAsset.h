@@ -19,7 +19,7 @@ class PULSEGAMEFRAMEWORK_API UAsyncLoadBatchGameAsset : public UBlueprintAsyncAc
 public:
 	// Blueprint node exposed function
 	UFUNCTION(BlueprintCallable, meta = (BlueprintInternalUseOnly = "true", WorldContext = "WorldContextObject", AdvancedDisplay = 3, AutoCreateRefTerm = "AssetIds"), Category = "PulseCore|AssetManager|Game Assets Queries")
-	static UAsyncLoadBatchGameAsset* LoadGameAssetBatch(UObject* WorldContextObject,UPARAM(meta=(AllowAbstract=false))
+	static UAsyncLoadBatchGameAsset* LoadPulseAssetBatch(UObject* WorldContextObject,UPARAM(meta=(AllowAbstract=false))
 	                                                      const TSubclassOf<UBasePulseAsset> Type,
 	                                                      const TArray<int32>& AssetIds,
 	                                                      UPARAM(meta = (Bitmask, BitmaskEnum = EPulseDataBundleType))

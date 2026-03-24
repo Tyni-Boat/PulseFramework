@@ -13,7 +13,7 @@
 /**
  * Serve as a base class for all Consumable item (potion, food, etc..) game Data types
  */
-UCLASS(Abstract, BlueprintType, Blueprintable)
+UCLASS(BlueprintType, Blueprintable)
 class PULSEGAMEFRAMEWORK_API UBasePulseConsumableItem : public UBasePulseBaseItemAsset
 {
 	GENERATED_BODY()

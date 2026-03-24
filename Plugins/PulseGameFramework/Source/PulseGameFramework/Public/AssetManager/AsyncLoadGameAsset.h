@@ -18,7 +18,7 @@ class PULSEGAMEFRAMEWORK_API UAsyncLoadGameAsset : public UBlueprintAsyncActionB
 public:
 	// Blueprint node exposed function
 	UFUNCTION(BlueprintCallable, meta = (BlueprintInternalUseOnly = "true", WorldContext = "WorldContextObject", AdvancedDisplay = 3), Category = "PulseCore|AssetManager|Game Assets Queries")
-	static UAsyncLoadGameAsset* LoadGameAsset(UObject* WorldContextObject,UPARAM(meta=(AllowAbstract=false))
+	static UAsyncLoadGameAsset* LoadPulseAsset(UObject* WorldContextObject,UPARAM(meta=(AllowAbstract=false))
 	                                          const TSubclassOf<UBasePulseAsset> Type, const int32 Id,
 	                                          UPARAM(meta = (Bitmask, BitmaskEnum = EPulseDataBundleType))
 	                                          int32 flag);

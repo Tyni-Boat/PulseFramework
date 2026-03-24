@@ -16,4 +16,7 @@ class PULSEGAMEFRAMEWORK_API UBasePulseBaseItemAsset : public UBasePulseAsset
 	GENERATED_BODY()
 	
 public:
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = BUNDLE_SPAWN, meta = (AssetBundles = BUNDLE_SPAWN))
+	TSoftObjectPtr<UStaticMesh> ItemMesh; // The mesh of the Item
 };

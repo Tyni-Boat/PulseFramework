@@ -18,25 +18,7 @@ class PULSEGAMEFRAMEWORK_API UBasePulseAsset : public UPrimaryDataAsset
 
 public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Asset Infos")
-	int32 AssetId;
-
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Asset Infos")
-	FDateTime LastModificationDate;
-
-	// The version of the asset (X-Major; Y-Minor; Z-Patch)
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Asset Infos")
-	FVector Version;
-
-	// Is this asset a place holder asset, while the developer is still working on the actual content?
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Asset Infos")
-	bool bIsPlaceHolder;
-
-#if WITH_EDITORONLY_DATA
-
-	UPROPERTY(EditAnywhere)
-	FString AssetPathForEditor;
-
-#endif
+	int32 PulseAssetId;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = BUNDLE_INFOS, meta = (AssetBundles = BUNDLE_INFOS))
 	FText Name = FText(); // Name of the asset, used for identification
@@ -51,7 +33,7 @@ public:
 	{
 		return FPrimaryAssetId(
 			*FString::Printf(TEXT("%s"), *GetClass()->GetName()),
-			*FString::Printf(TEXT("%s_%d"), *GetClass()->GetName(), AssetId)
+			*FString::Printf(TEXT("%s_%d"), *GetClass()->GetName(), PulseAssetId)
 		);
 	}
 };

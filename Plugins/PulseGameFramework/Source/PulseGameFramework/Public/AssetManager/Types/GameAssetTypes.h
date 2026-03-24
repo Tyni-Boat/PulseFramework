@@ -32,76 +32,40 @@ struct FPulseAssetId
 {
 	GENERATED_BODY()
 
+	FPulseAssetId(){}
+	FPulseAssetId(FPrimaryAssetId pId)
+	{
+		PrimaryAssetID = pId;
+		AssetType = pId.PrimaryAssetType;
+		FString lhs, rhs;
+		if (!pId.PrimaryAssetName.ToString().Split("_", &lhs, &rhs))
+			return;
+		if (!FCString::IsNumeric(*rhs))
+			return;
+		Id = FCString::Atoi(*rhs);
+	}
+
 	UPROPERTY(EditAnywhere)
-	FName AssetClassFName = "";
+	FPrimaryAssetType AssetType = "";
 
 	UPROPERTY(EditAnywhere)
 	int32 Id = 0;
 
-	FString ToString() const { return FString::Printf(TEXT("[%s-%d]"), *AssetClassFName.ToString(), Id); }
+	UPROPERTY(EditAnywhere)
+	FPrimaryAssetId PrimaryAssetID = {};
+
+	FString ToString() const { return FString::Printf(TEXT("[%s-%d]"), *AssetType.ToString(), Id); }
 
 	bool operator==(const FPulseAssetId& Other) const
 	{
-		return AssetClassFName == Other.AssetClassFName && Id == Other.Id;
+		return (AssetType == Other.AssetType && Id == Other.Id) || PrimaryAssetID == Other.PrimaryAssetID;
 	}
 };
 
 FORCEINLINE uint32 GetTypeHash(const FPulseAssetId& Key)
 {
-	return HashCombine(GetTypeHash(Key.AssetClassFName), GetTypeHash(Key.Id));
+	return HashCombine(HashCombine(GetTypeHash(Key.AssetType), GetTypeHash(Key.Id)), GetTypeHash(Key.PrimaryAssetID));
 }
-
-USTRUCT()
-struct FPulseAssetsManifestEntry
-{
-	GENERATED_BODY()
-public:	
-	UPROPERTY()
-	FPrimaryAssetId PrimaryAssetId = {};
-	
-	UPROPERTY()
-	FVector Version = FVector::ZeroVector;
-	
-	UPROPERTY()
-	bool bIsPlaceHolderAsset = false;
-
-	inline bool Compare(FPulseAssetsManifestEntry Other) const
-	{
-		if (bIsPlaceHolderAsset != Other.bIsPlaceHolderAsset)
-		{
-			if (bIsPlaceHolderAsset && !Other.bIsPlaceHolderAsset)
-				return true;
-			if (!bIsPlaceHolderAsset && Other.bIsPlaceHolderAsset)
-				return false;
-		}
-		if (Version == Other.Version)
-			return false;
-		if (Version.X != Other.Version.X)
-			return Version.X < Other.Version.X;
-		if (Version.Y != Other.Version.Y)
-			return Version.Y < Other.Version.Y;
-		else
-			return Version.Z < Other.Version.Z;
-	}
-};
-
-USTRUCT()
-struct FPulseAssetsManifestEntryPack
-{
-	GENERATED_BODY()
-public:	
-	UPROPERTY()
-	TArray<FPulseAssetsManifestEntry> EntryPack;
-};
-
-USTRUCT()
-struct FPulseAssetsManifest
-{
-	GENERATED_BODY()
-public:	
-	UPROPERTY()
-	TMap<FPulseAssetId, FPulseAssetsManifestEntry> AssetsRegistry;
-};
 
 USTRUCT(BlueprintType)
 struct FAssetPack
@@ -132,17 +96,4 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnMultipleAssetsLoaded, FAssetPack,
 
 #pragma endregion Macros
 
-#pragma region Classes
-
-UCLASS(BlueprintType, NotBlueprintable)
-class UPulseLocalBakedAssetManifest : public UObject
-{
-	GENERATED_BODY()
-
-public:
-	UPROPERTY()
-	FPulseAssetsManifest AssetsManifest;
-};
-
-#pragma endregion Classes
 

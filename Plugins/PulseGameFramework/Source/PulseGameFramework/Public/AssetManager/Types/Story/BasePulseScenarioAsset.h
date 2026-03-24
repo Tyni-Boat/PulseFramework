@@ -5,7 +5,7 @@
 #include "CoreMinimal.h"
 #include "UObject/Object.h"
 #include "AssetManager/Types/BasePulseAsset.h"
-#include "BasePulseStoryAsset.generated.h"
+#include "BasePulseScenarioAsset.generated.h"
 
 
 
@@ -14,7 +14,7 @@
  * Serve as a base class for all Story game Data types
  */
 UCLASS(Abstract, BlueprintType, Blueprintable)
-class PULSEGAMEFRAMEWORK_API UBasePulseStoryAsset: public UBasePulseAsset
+class PULSEGAMEFRAMEWORK_API UBasePulseScenarioAsset: public UBasePulseAsset
 {
 	GENERATED_BODY()
 };

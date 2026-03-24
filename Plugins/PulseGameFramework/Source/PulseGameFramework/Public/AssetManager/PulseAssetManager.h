@@ -4,7 +4,6 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "PulseContentProvider.h"
 #include "Kismet/BlueprintFunctionLibrary.h"
 #include "Types/GameAssetTypes.h"
 #include "Core/PulseCoreTypes.h"
@@ -12,45 +11,6 @@
 #include "PulseAssetManager.generated.h"
 
 
-USTRUCT()
-struct FPAkAssetReferenceKey
-{
-	GENERATED_BODY()
-public:
-	UPROPERTY()
-	TSubclassOf<UObject> Class = nullptr;
-	UPROPERTY()
-	FString BundleName = "";
-
-	bool operator==(const FPAkAssetReferenceKey& Other) const
-	{
-		return Class == Other.Class && BundleName == Other.BundleName;
-	}
-};
-
-FORCEINLINE uint32 GetTypeHash(const FPAkAssetReferenceKey& Key)
-{
-	return HashCombine(GetTypeHash(Key.Class), GetTypeHash(Key.BundleName));
-}
-
-USTRUCT()
-struct FPAkAssetReferenceEntry
-{
-	GENERATED_BODY()
-public:
-	TArray<FString> ContentPaths = {};
-	TArray<FString> ModularGameplayPlugins = {};
-	TArray<FAssetData> AssetReferences = {};
-};
-
-USTRUCT()
-struct FPAkMountRequest
-{
-	GENERATED_BODY()
-public:
-	TSubclassOf<UPulseContentProvider> ProviderClass = nullptr;
-	FPulseBundleDescriptor BundleDescriptor = {};
-};
 
 
 class UBasePulseAsset;
@@ -62,45 +22,13 @@ class UPulseAssetManager : public UAssetManager, public IIPulseCore
 
 private:
 
-	bool MountPak(const FString& PakPath, const int32 Version);
-	bool UnmountPak(const FString& PakPath);
+	TSet<FPulseAssetId> AssetSet = {};
 
-public:
-	UPROPERTY()
-	TMap<TSubclassOf<UPulseContentProvider>, TObjectPtr<UPulseContentProvider>> ContentProviders;
-	UPROPERTY()
-	FPulseAssetsManifest AssetsManifest;
-	UPROPERTY()
-	FPulseAssetsManifest DLCAssetsManifest;
-	UPROPERTY()
-	TSet<FPrimaryAssetId> AssetCheckList;
-	UPROPERTY()
-	TMap<FPulseAssetId, FPulseAssetsManifestEntryPack> DLCVersioningEntries;
-	UPROPERTY()
-	TMap<FPAkAssetReferenceKey, FPAkAssetReferenceEntry> PakAssetReferences;
-	UPROPERTY()
-	TArray<FPAkMountRequest> ContentMountRequests;
-	UPROPERTY()
-	FPAkMountRequest CurrentMountRequest;
-	
+public:	
 	static UPulseAssetManager* Get()
 	{
 		return Cast<UPulseAssetManager>(UAssetManager::GetIfInitialized());
 	}
-	
-	// Get the save path of game content.
-	static FString GetGameContentSavePath();
-
-	// Get the save path of additional contents
-	static FString GetDLCSavePath();
-
-	// Get the download path of additional contents
-	static FString GetDLCDownloadPath();
-	
-	UFUNCTION()
-	void OnBundleReadyToMount(TSubclassOf<UPulseContentProvider> Class, const FString& FilePath, bool bSucess);
-	void TryToAttributePostLoadedAssetToCurrentBundle(const FAssetData& AssetData);
-	void TryToRemovePostLoadedAssetFromCurrentBundle(const FAssetData& AssetData);
 
 	void OnPostAssetAdded(const FAssetData& AssetData);
 	void OnPostAssetRemoved(const FAssetData& AssetData);
@@ -108,15 +36,12 @@ public:
 
 	virtual void StartInitialLoading() override;
 	bool AssetExist(const FPrimaryAssetId Id) const;
-	void LoadAssetsManifest();
-	void SaveAssetsManifest() const;
-	bool QueryPrimaryAssetID(const FName& ClassFName, const int32& Id, FPrimaryAssetId& OutAssetID, bool bIncludePlaceholders = false);
-	bool QueryPulseAssetID(const FPrimaryAssetId& PrimaryId, FPulseAssetId& OutAssetID, bool bIncludePlaceholders = false);
-	void MountPendingPakPackages();
-	void UnMountContentPackage(const FString& BundleName, bool bDeleteBundle = false);
+	bool QueryPrimaryAssetID(const FPrimaryAssetType& Type, const int32& Id, FPrimaryAssetId& OutAssetID) const;
+	bool QueryPulseAssetID(const FPrimaryAssetId& PrimaryId, FPulseAssetId& OutAssetID) const;
 
 	// Return on success an array of the same size of Id array
-	void AsyncLoadPulseAssets(const TSubclassOf<UBasePulseAsset> Class, const TArray<int32>& Ids, const TArray<FName>& LoadBundles = TArray<FName>(), TFunction<void(TArray<UPrimaryDataAsset*>&)> OnSuccess = nullptr, TFunction<void()> OnFailed = nullptr, bool bIncludePlaceholderAssets = false);
+	void AsyncLoadPulseAssets(TSubclassOf<UBasePulseAsset> Class, const TArray<int32>& Ids, const TArray<FName>& LoadBundles = TArray<FName>(), TFunction<void(TArray<UPrimaryDataAsset*>&)> OnSuccess = nullptr, TFunction
+	                          <void()> OnFailed = nullptr);
 
 	virtual void BeginDestroy() override;
 };
@@ -135,25 +60,25 @@ public:
 
 	// Try to get an asset object's ID
 	UFUNCTION(BlueprintPure, Category = "PulseCore|AssetManager|Game Assets Tools", meta = (CompactNodeTitle = "ObjectID", Keywords = "id, object"))
-	static bool TryGetObjectAssetID(UObject* Object, int32& OutID);
+	static bool GetAssetPulseID(UObject* Object, int32& OutID);
 
 	// Try to get the primary Type of a class
 	UFUNCTION(BlueprintPure, Category = "PulseCore|AssetManager|Game Assets Tools", meta = (CompactNodeTitle = "ClassToAssetType", Keywords = "class, asset"))
-	static bool TryGetPrimaryAssetType(UPARAM(meta=(AllowAbstract=false))
+	static bool GetClassPrimaryAssetType(UPARAM(meta=(AllowAbstract=false))
 	                                   const TSubclassOf<UBasePulseAsset> Type, FPrimaryAssetType& OutAssetType);
 
 	// Try to get the Type of a Primary asset Type
 	UFUNCTION(BlueprintPure, Category = "PulseCore|AssetManager|Game Assets Tools", meta = (CompactNodeTitle = "AssetTypeToClass", Keywords = "asset, class"))
-	static bool TryGetClassAssetType(const FPrimaryAssetType& AssetType, TSoftClassPtr<UObject>& OutClass);
+	static bool GetPrimaryTypeClass(const FPrimaryAssetType& AssetType, TSoftClassPtr<UObject>& OutClass);
 
 	// Try to get the primary asset id of this type and Id
 	UFUNCTION(BlueprintPure, Category = "PulseCore|AssetManager|Game Assets Tools", meta = (CompactNodeTitle = "ToPrimaryID", Keywords = "id, primary"))
-	static bool TryGetPrimaryAssetID(UPARAM(meta=(AllowAbstract=false))
+	static bool GetPrimaryAssetID(UPARAM(meta=(AllowAbstract=false))
 	                                 const TSubclassOf<UBasePulseAsset> Type, const int32 Id, FPrimaryAssetId& OutAssetID);
 
 	// Try to get the asset type, name and ID from primary Asset ID
 	UFUNCTION(BlueprintPure, Category = "PulseCore|AssetManager|Game Assets Tools", meta = (CompactNodeTitle = "FromPrimaryID", Keywords = "id, primary"))
-	static bool TryGetPrimaryAssetInfos(const FPrimaryAssetId& AssetID, TSoftClassPtr<UObject>& OutClass, FName& OutAssetName, int32& OutAssetId);
+	static bool GetPulseAssetInfos(const FPrimaryAssetId& AssetID, TSoftClassPtr<UObject>& OutClass, FName& OutAssetName, int32& OutAssetId);
 
 	UFUNCTION(BlueprintPure, Category = "PulseCore|AssetManager|Game Assets Queries", meta = (CompactNodeTitle = "AllAssets", Keywords = "asset, all"))
 	static TArray<FPrimaryAssetId> GetAllAssetsOfType(UPARAM(meta=(AllowAbstract=false))
@@ -170,13 +95,13 @@ public:
 	                               const TArray<FName>& Bundles = {BUNDLE_INFOS});
 
 	UFUNCTION(BlueprintCallable, Category = "PulseCore|AssetManager|Game Assets Actions")
-	static void TryUnloadGameAsset(UPARAM(meta=(AllowAbstract=false))
+	static void UnloadGameAsset(UPARAM(meta=(AllowAbstract=false))
 	                               const TSubclassOf<UBasePulseAsset> Type, const int32 Id);
 
 	UFUNCTION(BlueprintCallable, Category = "PulseCore|AssetManager|Game Assets Actions")
-	static void TryUnloadAllGameAssets(UPARAM(meta=(AllowAbstract=false))
+	static void UnloadAllGameAssets(UPARAM(meta=(AllowAbstract=false))
 		const TSubclassOf<UBasePulseAsset> Type);
 
 	UFUNCTION(BlueprintCallable, Category = "PulseCore|AssetManager|Game Assets Queries")
-	static bool TryGetControlledCharacterID(const AController* Controller, FPrimaryAssetId& OutCharacterID);
+	static bool GetActorAssetID(AActor* Actor, FPrimaryAssetId& OutActorID);
 };

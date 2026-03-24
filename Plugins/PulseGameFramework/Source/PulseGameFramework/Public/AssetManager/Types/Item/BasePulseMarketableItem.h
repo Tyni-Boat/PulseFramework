@@ -13,7 +13,7 @@
 /**
  * Serve as a base class for all Marketable item (currency, resource, etc..) game Data types
  */
-UCLASS(Abstract, BlueprintType, Blueprintable)
+UCLASS(BlueprintType, Blueprintable)
 class PULSEGAMEFRAMEWORK_API UBasePulseMarketableItem : public UBasePulseBaseItemAsset
 {
 	GENERATED_BODY()

@@ -7,7 +7,7 @@
 
 
 
-UAsyncLoadBatchGameAsset* UAsyncLoadBatchGameAsset::LoadGameAssetBatch(UObject* WorldContextObject, const TSubclassOf<UBasePulseAsset> Type, const TArray<int32>& AssetIds,
+UAsyncLoadBatchGameAsset* UAsyncLoadBatchGameAsset::LoadPulseAssetBatch(UObject* WorldContextObject, const TSubclassOf<UBasePulseAsset> Type, const TArray<int32>& AssetIds,
                                                                        int32 flag)
 {
 	UAsyncLoadBatchGameAsset* Node = NewObject<UAsyncLoadBatchGameAsset>();

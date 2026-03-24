@@ -7,7 +7,7 @@
 
 
 
-UAsyncLoadGameAsset* UAsyncLoadGameAsset::LoadGameAsset(UObject* WorldContextObject, const TSubclassOf<UBasePulseAsset> Type, const int32 Id, int32 flag)
+UAsyncLoadGameAsset* UAsyncLoadGameAsset::LoadPulseAsset(UObject* WorldContextObject, const TSubclassOf<UBasePulseAsset> Type, const int32 Id, int32 flag)
 {
 	UAsyncLoadGameAsset* Node = NewObject<UAsyncLoadGameAsset>();
 	Node->_worldContext = WorldContextObject;

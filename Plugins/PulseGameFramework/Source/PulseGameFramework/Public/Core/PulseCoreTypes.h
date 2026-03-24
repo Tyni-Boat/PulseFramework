@@ -203,6 +203,7 @@ public:
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FPulseTriggerEvent);
 DECLARE_MULTICAST_DELEGATE(FPulseTriggerEventRaw);
 DECLARE_DELEGATE_TwoParams(FOnMD5Computed, bool /*bSuccess*/, const FString& /*MD5*/);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnActorAssetLoaded, AActor*, Actor, FPrimaryAssetId, AssetId);
 
 #pragma endregion Macros
 
