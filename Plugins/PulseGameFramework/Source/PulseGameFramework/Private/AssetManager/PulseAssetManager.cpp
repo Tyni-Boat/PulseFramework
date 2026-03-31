@@ -11,9 +11,6 @@
 #include "PulseGameFramework.h"
 
 
-
-
-
 void UPulseAssetManager::OnPostAssetAdded(const FAssetData& AssetData)
 {
 	FPrimaryAssetId id = AssetData.GetPrimaryAssetId();
@@ -84,8 +81,8 @@ bool UPulseAssetManager::AssetExist(const FPrimaryAssetId Id) const
 bool UPulseAssetManager::QueryPrimaryAssetID(const FPrimaryAssetType& Type, const int32& Id, FPrimaryAssetId& OutAssetID) const
 {
 	const auto pAssetID = FPrimaryAssetId(
-			*FString::Printf(TEXT("%s"), *Type.ToString()),
-			*FString::Printf(TEXT("%s_%d"), *Type.ToString(), Id));
+		*FString::Printf(TEXT("%s"), *Type.ToString()),
+		*FString::Printf(TEXT("%s_%d"), *Type.ToString(), Id));
 	if (AssetExist(pAssetID))
 	{
 		OutAssetID = pAssetID;
@@ -105,7 +102,7 @@ bool UPulseAssetManager::QueryPulseAssetID(const FPrimaryAssetId& PrimaryId, FPu
 }
 
 
-void UPulseAssetManager::AsyncLoadPulseAssets(const TSubclassOf<UBasePulseAsset> Class, const TArray<int32>& Ids, const TArray<FName>& LoadBundles,
+void UPulseAssetManager::AsyncLoadPulseAssets(const TSubclassOf<UBasePulseAsset> Class, const TSet<int32>& Ids, const TArray<FName>& LoadBundles,
                                               TFunction<void(TArray<UPrimaryDataAsset*>&)> OnSuccess, TFunction<void()> OnFailed)
 {
 	if (!Class)
@@ -120,42 +117,43 @@ void UPulseAssetManager::AsyncLoadPulseAssets(const TSubclassOf<UBasePulseAsset>
 			OnFailed();
 		return;
 	}
+	TArray<int32> IdList = Ids.Array();
 	const FName className = Class->GetFName();
-	TMap<FPrimaryAssetId, TArray<int32>> IndexMap;
+	TMap<FPrimaryAssetId, int32> IndexMap;
 	TMap<FPrimaryAssetId, TObjectPtr<UBasePulseAsset>> AssetMap;
 	// Fill assets ids
-	for (int i = 0; i < Ids.Num(); ++i)
+	for (int i = 0; i < IdList.Num(); ++i)
 	{
 		FPrimaryAssetId assetID;
-		if (QueryPrimaryAssetID(className, Ids[i], assetID))
-		{
-			if (!IndexMap.Contains(assetID))
-				IndexMap.Add(assetID, {i});
-			else
-				IndexMap[assetID].Add(i);
-			if (!AssetMap.Contains(assetID))
-				AssetMap.Add(assetID, nullptr);
-		}
+		if (QueryPrimaryAssetID(className, IdList[i], assetID))
+			UPulseSystemLibrary::MapAddOrUpdateValue(IndexMap, assetID, i);
+	}
+	// No need to continue if nothing in Index map
+	if (IndexMap.IsEmpty())
+	{
+		if (OnFailed != nullptr)
+			OnFailed();
+		return;
 	}
 	// Prepare delegate
 	FStreamableDelegate streamableDelegate;
-	streamableDelegate.BindLambda([this, IndexMap, AssetMap, Ids, OnSuccess, OnFailed]()-> void
+	streamableDelegate.BindLambda([this, IndexMap, OnSuccess, OnFailed]()-> void
 	{
 		TArray<UPrimaryDataAsset*> _assets;
-		UPulseSystemLibrary::ArrayMatchSize(_assets, Ids.Num());
+		UPrimaryDataAsset* nullItem = nullptr;
+		UPulseSystemLibrary::ArrayMatchSize(_assets, IndexMap.Num(), true, nullItem);
 		TArray<FPrimaryAssetId> _assetIds;
-		AssetMap.GetKeys(_assetIds);
+		IndexMap.GetKeys(_assetIds);
 		bool atLeastOne = false;
-		for (const auto& assetID : _assetIds)
+		for (const auto& assetPair : IndexMap)
 		{
-			if (auto asset = Cast<UPrimaryDataAsset>(GetPrimaryAssetObject(assetID)))
+			if (auto asset = Cast<UPrimaryDataAsset>(GetPrimaryAssetObject(assetPair.Key)))
 			{
-				if (IndexMap.Contains(assetID))
-				{
-					atLeastOne = true;
-					for (const auto& index : IndexMap[assetID])
-						_assets[index] = asset;
-				}
+				const auto& index = IndexMap[assetPair.Key];
+				if (!_assets.IsValidIndex(index))
+					continue;
+				atLeastOne = true;
+				_assets[index] = asset;
 			}
 		}
 		if (!atLeastOne)
@@ -170,7 +168,7 @@ void UPulseAssetManager::AsyncLoadPulseAssets(const TSubclassOf<UBasePulseAsset>
 
 	// Load assets
 	TArray<FPrimaryAssetId> assetIds;
-	AssetMap.GetKeys(assetIds);
+	IndexMap.GetKeys(assetIds);
 	LoadPrimaryAssets(assetIds, LoadBundles, streamableDelegate);
 }
 
@@ -178,9 +176,6 @@ void UPulseAssetManager::BeginDestroy()
 {
 	Super::BeginDestroy();
 }
-
-
-
 
 
 TArray<FName> UPulseBPAssetManager::GetDataBundleFromFlags(int32 flag)
@@ -287,6 +282,14 @@ TArray<FPrimaryAssetId> UPulseBPAssetManager::GetAllAssetsOfType(const TSubclass
 	return {};
 }
 
+bool UPulseBPAssetManager::IsAssetLoaded(const FPrimaryAssetId& AssetID)
+{
+	auto mgr = UPulseAssetManager::Get();
+	if (!mgr)
+		return false;
+	return mgr->GetPrimaryAssetObject(AssetID) != nullptr;
+}
+
 bool UPulseBPAssetManager::LoadPulseAsset(const TSubclassOf<UBasePulseAsset> Type, const int32 Id, FOnAssetLoaded& CallBack, const TArray<FName>& Bundles)
 {
 	auto mgr = UPulseAssetManager::Get();
@@ -347,7 +350,7 @@ bool UPulseBPAssetManager::LoadAllPulseAssets(const TSubclassOf<UBasePulseAsset>
 	return true;
 }
 
-bool UPulseBPAssetManager::LoadMultipleAssets(const TSubclassOf<UBasePulseAsset> Type, TArray<int32> Ids, FOnMultipleAssetsLoaded& CallBack, const TArray<FName>& Bundles)
+bool UPulseBPAssetManager::LoadMultipleAssets(const TSubclassOf<UBasePulseAsset> Type, TSet<int32> Ids, FOnMultipleAssetsLoaded& CallBack, const TArray<FName>& Bundles)
 {
 	auto mgr = UPulseAssetManager::Get();
 	if (!mgr)

@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "Kismet/BlueprintAsyncActionBase.h"
+#include "Types/BasePulseAsset.h"
 #include "Types/GameAssetTypes.h"
 #include "UObject/Object.h"
 #include "AsyncLoadBatchGameAsset.generated.h"
@@ -17,11 +18,11 @@ class PULSEGAMEFRAMEWORK_API UAsyncLoadBatchGameAsset : public UBlueprintAsyncAc
 	GENERATED_BODY()
 
 public:
-	// Blueprint node exposed function
+	// Load multiple pulse assets in batch. The returning list of asset will match the input asset Ids list allowing the possibility of null assets.
 	UFUNCTION(BlueprintCallable, meta = (BlueprintInternalUseOnly = "true", WorldContext = "WorldContextObject", AdvancedDisplay = 3, AutoCreateRefTerm = "AssetIds"), Category = "PulseCore|AssetManager|Game Assets Queries")
 	static UAsyncLoadBatchGameAsset* LoadPulseAssetBatch(UObject* WorldContextObject,UPARAM(meta=(AllowAbstract=false))
 	                                                      const TSubclassOf<UBasePulseAsset> Type,
-	                                                      const TArray<int32>& AssetIds,
+	                                                      const TSet<int32>& AssetIds,
 	                                                      UPARAM(meta = (Bitmask, BitmaskEnum = EPulseDataBundleType))
 	                                                      int32 flag);
 
@@ -40,6 +41,6 @@ private:
 	UObject* _worldContext;
 	UPROPERTY()
 	UClass* _Type;
-	TArray<int32> _Ids;
+	TSet<int32> _Ids;
 	TArray<FName> _assetBundles;
 };

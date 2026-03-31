@@ -17,7 +17,7 @@ class PULSEGAMEFRAMEWORK_API UBasePulseAsset : public UPrimaryDataAsset
 	GENERATED_BODY()
 
 public:
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Asset Infos")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Asset Infos")
 	int32 PulseAssetId;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = BUNDLE_INFOS, meta = (AssetBundles = BUNDLE_INFOS))

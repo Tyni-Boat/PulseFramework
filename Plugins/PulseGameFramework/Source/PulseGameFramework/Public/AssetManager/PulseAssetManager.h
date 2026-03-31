@@ -40,7 +40,7 @@ public:
 	bool QueryPulseAssetID(const FPrimaryAssetId& PrimaryId, FPulseAssetId& OutAssetID) const;
 
 	// Return on success an array of the same size of Id array
-	void AsyncLoadPulseAssets(TSubclassOf<UBasePulseAsset> Class, const TArray<int32>& Ids, const TArray<FName>& LoadBundles = TArray<FName>(), TFunction<void(TArray<UPrimaryDataAsset*>&)> OnSuccess = nullptr, TFunction
+	void AsyncLoadPulseAssets(TSubclassOf<UBasePulseAsset> Class, const TSet<int32>& Ids, const TArray<FName>& LoadBundles = TArray<FName>(), TFunction<void(TArray<UPrimaryDataAsset*>&)> OnSuccess = nullptr, TFunction
 	                          <void()> OnFailed = nullptr);
 
 	virtual void BeginDestroy() override;
@@ -55,7 +55,7 @@ class PULSEGAMEFRAMEWORK_API UPulseBPAssetManager : public UBlueprintFunctionLib
 
 public:
 	UFUNCTION(BlueprintPure, Category = "PulseCore|AssetManager|Game Assets Tools", meta = (CompactNodeTitle = "BundleFlags", Keywords = "bundle, flag"))
-	static TArray<FName> GetDataBundleFromFlags(UPARAM(meta = (Bitmask, BitmaskEnum = EDataBundleType))
+	static TArray<FName> GetDataBundleFromFlags(UPARAM(meta = (Bitmask, BitmaskEnum = EPulseDataBundleType))
 		int32 flag);
 
 	// Try to get an asset object's ID
@@ -84,6 +84,9 @@ public:
 	static TArray<FPrimaryAssetId> GetAllAssetsOfType(UPARAM(meta=(AllowAbstract=false))
 		const TSubclassOf<UObject> Type);
 
+	UFUNCTION(BlueprintPure, Category = "PulseCore|AssetManager|Game Assets Queries", meta = (CompactNodeTitle = "IsLoaded", Keywords = "asset, Loaded"))
+	static bool IsAssetLoaded(const FPrimaryAssetId& AssetID);
+
 	// Load A Game Asset
 	static bool LoadPulseAsset(const TSubclassOf<UBasePulseAsset> Type, const int32 Id, FOnAssetLoaded& CallBack, const TArray<FName>& Bundles = {BUNDLE_INFOS});
 
@@ -91,7 +94,7 @@ public:
 	static bool LoadAllPulseAssets(const TSubclassOf<UBasePulseAsset> Type, FOnMultipleAssetsLoaded& CallBack, const TArray<FName>& Bundles = {BUNDLE_INFOS});
 
 	// Load batch of game Assets of type T
-	static bool LoadMultipleAssets(const TSubclassOf<UBasePulseAsset> Type, TArray<int32> Ids, FOnMultipleAssetsLoaded& CallBack,
+	static bool LoadMultipleAssets(const TSubclassOf<UBasePulseAsset> Type, TSet<int32> Ids, FOnMultipleAssetsLoaded& CallBack,
 	                               const TArray<FName>& Bundles = {BUNDLE_INFOS});
 
 	UFUNCTION(BlueprintCallable, Category = "PulseCore|AssetManager|Game Assets Actions")

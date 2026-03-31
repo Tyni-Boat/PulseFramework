@@ -5,20 +5,21 @@
 
 #include "CoreMinimal.h"
 #include "Kismet/BlueprintAsyncActionBase.h"
+#include "Types/BasePulseAsset.h"
 #include "Types/GameAssetTypes.h"
 #include "UObject/Object.h"
 #include "AsyncLoadAllTypeGameAsset.generated.h"
 
 
 
-// Async task to all game assets of the same type
+// Async task to load all game assets of the same type
 UCLASS()
 class PULSEGAMEFRAMEWORK_API UAsyncLoadAllTypeGameAsset : public UBlueprintAsyncActionBase
 {
 	GENERATED_BODY()
 
 public:
-	// Blueprint node exposed function
+	// Load all pulse assets of the same type
 	UFUNCTION(BlueprintCallable, meta = (BlueprintInternalUseOnly = "true", WorldContext = "WorldContextObject", AdvancedDisplay = 3), Category = "PulseCore|AssetManager|Game Assets Queries")
 	static UAsyncLoadAllTypeGameAsset* LoadPulseAssetsOfType(UObject* WorldContextObject,UPARAM(meta=(AllowAbstract=false))
 	                                                      const TSubclassOf<UBasePulseAsset> Type,
