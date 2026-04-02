@@ -19,6 +19,10 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "PulseCore|Debug|SceneDrawing", meta = (WorldContext = "WorldContext"))
 	static void DrawDebugTransform(const UObject* WorldContext, const FTransform Transform, FLinearColor Color, float Duration = 1, float Size = 3);
 	
+	// Draw a circle at a location on a normal axis
+	UFUNCTION(BlueprintCallable, Category = "PulseCore|Debug|SceneDrawing", meta = (WorldContext = "WorldContext"))
+	static void DrawDebugCircle(const UObject* WorldContext, const FVector Location, float Radius, FVector Normal, FLinearColor Color, float Duration = 1, float Size = 3);
+	
 	// Check if 3 vector are orthonormal, and draw them in color if they are and gray if they are not.
 	UFUNCTION(BlueprintCallable, Category = "PulseCore|Debug|SceneDrawing", meta = (WorldContext = "WorldContext"))
 	static void DrawDebugBasis(const UObject* WorldContext, const FVector DrawLocation, const FVector ForwardVector, const FVector RightVector, const FVector UpVector, float Duration = 1, float Size = 3);

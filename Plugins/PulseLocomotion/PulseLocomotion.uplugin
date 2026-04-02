@@ -2,9 +2,9 @@
 	"FileVersion": 3,
 	"Version": 1,
 	"VersionName": "1.0",
-	"FriendlyName": "PulseTestFramework",
-	"Description": "Test the Pulse Game framework",
-	"Category": "Test Plugin",
+	"FriendlyName": "PulseLocomotion",
+	"Description": "Specialized in pawn movement and based off the Mover and GAS plugin, the pulse locomotion plugin offer a suit of tools to handle movement and speedup the movement fine tuning with some ready to use examples.",
+	"Category": "Code Plugin",
 	"CreatedBy": "Tyni Boat",
 	"CreatedByURL": "",
 	"DocsURL": "",
@@ -16,29 +16,27 @@
 	"Installed": false,
 	"Modules": [
 		{
-			"Name": "PulseTestFramework",
+			"Name": "PulseLocomotion",
 			"Type": "Runtime",
 			"LoadingPhase": "Default"
 		}
 	],
-	"Sealed": true,
 	"Plugins": [
 		{
 			"Name": "PulseGameFramework",
 			"Enabled": true
 		},
 		{
-			"Name": "CommonUI",
+			"Name": "Mover",
 			"Enabled": true
 		},
 		{
-			"Name": "PulseUILibrary",
+			"Name": "ChaosMover",
 			"Enabled": true
 		},
 		{
-			"Name": "PulseLocomotion",
-			"Enabled": true,
-			"Optional": true
+			"Name": "GameplayAbilities",
+			"Enabled": true
 		}
 	]
 }

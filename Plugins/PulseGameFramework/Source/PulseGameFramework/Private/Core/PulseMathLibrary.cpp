@@ -48,3 +48,8 @@ void UPulseMathLibrary::MakeOrthoBasis(const FVector& vector, FVector& OutRight,
 	rot = UKismetMathLibrary::MakeRotFromXY(fwd, OutRight).Quaternion();
 	OutUp = rot.GetUpVector();
 }
+
+float UPulseMathLibrary::CircleArcLenght(const float Radius, const float radAngle)
+{
+	return Radius * radAngle;
+}

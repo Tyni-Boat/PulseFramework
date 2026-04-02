@@ -22,7 +22,7 @@ class PULSEGAMEFRAMEWORK_API UBasePulseCharacterAsset : public UBasePulseAsset
 public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = BUNDLE_SPAWN, meta = (AssetBundles = BUNDLE_SPAWN))
-	TSoftObjectPtr<USkeletalMesh> SkeletalMesh; 
+	TSoftObjectPtr<USkeletalMesh> SkeletalMesh;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = BUNDLE_SPAWN, meta = (AssetBundles = BUNDLE_SPAWN))
 	TSoftClassPtr<class UAnimInstance> AnimBlueprint;

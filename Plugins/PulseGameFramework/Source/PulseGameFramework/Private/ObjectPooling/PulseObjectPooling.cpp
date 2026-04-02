@@ -16,7 +16,9 @@ void UPulseObjectPooling::Initialize(FSubsystemCollectionBase& Collection)
 	{
 		_globalPoolLimit = projectConfig->GlobalPoolLimit;
 	}
+#if WITH_EDITOR
 	_DuplicateDelegate = FCoreUObjectDelegates::OnObjectsReplaced.AddUObject(this, &UPulseObjectPooling::OnObjectsReplaced_Internal);
+#endif
 	_DeleteDelegate = FCoreUObjectDelegates::PreGarbageCollectConditionalBeginDestroy.AddUObject(this, &UPulseObjectPooling::OnGCPreDestroy_Internal);
 	UE_LOG(LogPulseObjectPooling, Log, TEXT("Pooling sub-system initialized"));
 }
@@ -25,8 +27,10 @@ void UPulseObjectPooling::Deinitialize()
 {
 	Super::Deinitialize();
 	ClearPool();
+#if WITH_EDITOR
 	if (_DuplicateDelegate.IsValid())
 		FCoreUObjectDelegates::OnObjectsReplaced.Remove(_DuplicateDelegate);
+#endif
 	_DuplicateDelegate.Reset();
 	if (_DeleteDelegate.IsValid())
 		FCoreUObjectDelegates::PreGarbageCollectConditionalBeginDestroy.Remove(_DeleteDelegate);
@@ -407,7 +411,7 @@ EPoolQueryResult UPulseObjectPooling::QueryObject(UObject* Owner, TSubclassOf<UO
 		OnPoolCreationQuery.Broadcast(ObjectClass);
 	else
 		OnPoolQuery.Broadcast(ObjectClass);
-	
+
 	UE_LOG(LogPulseObjectPooling, Log, TEXT("QueryObject %s(%s) of type %s successful"), *Object->GetName(), *GetNameSafe(Object->GetOuter()), *Class->GetName());
 	return EPoolQueryResult::Success;
 }
@@ -577,11 +581,11 @@ void UPulseObjectPooling::GetPoolClasses(TMap<TSubclassOf<UObject>, int32>& OutC
 	TArray<TSubclassOf<UObject>> allLiveClasses;
 	PoolingDormantObjectMap.GetKeys(allDormantClasses);
 	PoolingLiveObjectMap.GetKeys(allLiveClasses);
-	for (auto clas : allLiveClasses)
+	for (auto& clas : allLiveClasses)
 		classSet.Add(clas);
-	for (auto clas : allDormantClasses)
+	for (auto& clas : allDormantClasses)
 		classSet.Add(clas);
-	for (const auto clas : classSet)
+	for (const auto& clas : classSet)
 	{
 		OutClasses.Add(clas, PerClassPoolLimit.Contains(clas) ? PerClassPoolLimit[clas] : _globalPoolLimit);
 	}

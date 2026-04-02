@@ -2,6 +2,8 @@
 
 
 #include "Core/PulseDebugLibrary.h"
+
+#include "Kismet/KismetMathLibrary.h"
 #include "Kismet/KismetSystemLibrary.h"
 
 
@@ -15,8 +17,14 @@ void UPulseDebugLibrary::DrawDebugTransform(const UObject* WorldContext, const F
 	UKismetSystemLibrary::DrawDebugPoint(WorldContext, start, Size * 5, Color, Duration);
 }
 
+void UPulseDebugLibrary::DrawDebugCircle(const UObject* WorldContext, const FVector Location, float Radius, FVector Normal, FLinearColor Color, float Duration, float Size)
+{
+	const auto rot = UKismetMathLibrary::MakeRotFromY(Normal).Quaternion();
+	UKismetSystemLibrary::DrawDebugCircle(WorldContext, Location, Radius, Radius * 12, Color, Duration, Size, Normal, rot.GetRightVector());
+}
+
 void UPulseDebugLibrary::DrawDebugBasis(const UObject* WorldContext, const FVector DrawLocation, const FVector ForwardVector, const FVector RightVector, const FVector UpVector,
-	float Duration, float Size)
+                                        float Duration, float Size)
 {
 	const FVector start = DrawLocation;
 	const FVector end_f = start + ForwardVector.GetSafeNormal() * Size * 10;

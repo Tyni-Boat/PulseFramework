@@ -34,4 +34,8 @@ public:
 	// Make an orthonormal basis from a vector
 	UFUNCTION(BlueprintPure, Category="PulseCore|Math", meta=(DisplayName="OrthoBasis", AdvancedDisplay = 1))
 	static void MakeOrthoBasis(const FVector& vector, FVector& OutRight, FVector& OutUp, float vectorRollInDegrees = 0);
+
+	// Get the lenght of a circle arc
+	UFUNCTION(BlueprintPure, Category="PulseCore|Math", meta=(DisplayName="ArcLenght", AdvancedDisplay = 1))
+	static float CircleArcLenght(const float Radius, const float radAngle);
 };
