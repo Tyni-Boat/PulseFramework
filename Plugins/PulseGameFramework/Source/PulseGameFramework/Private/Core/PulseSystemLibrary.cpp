@@ -21,10 +21,10 @@ bool UPulseSystemLibrary::TryGetCameraRelativeInput(const UObject* WorldContext,
                                                     const float SnapToAngle)
 {
 	FVector2D inp = Input;
+	const float lenght = inp.Length();
 
 	if (SnapToAngle > 0 && FMath::Abs(inp.X) > 0 && FMath::Abs(inp.Y) > 0)
 	{
-		const float lenght = inp.Length();
 		const float snapDirA = FMath::Modulo(SnapToAngle, 90);
 		const float snapVal = FMath::Abs(FMath::Sin(FMath::DegreesToRadians(snapDirA)));
 		if (FMath::Abs(inp.X) > FMath::Abs(inp.Y))
@@ -41,7 +41,7 @@ bool UPulseSystemLibrary::TryGetCameraRelativeInput(const UObject* WorldContext,
 		}
 	}
 
-	OutDirection = FVector::ForwardVector * inp.Y + FVector::RightVector * inp.X;
+	OutDirection = (FVector::ForwardVector * inp.Y + FVector::RightVector * inp.X).GetSafeNormal() * lenght;
 	if (!WorldContext)
 		return false;
 	auto playerController = UGameplayStatics::GetPlayerController(WorldContext, PlayerIndex);
@@ -52,12 +52,12 @@ bool UPulseSystemLibrary::TryGetCameraRelativeInput(const UObject* WorldContext,
 		return false;
 	const auto camRot = camMgr->GetCameraRotation().Quaternion();
 	FVector n = Normal;
-	OutDirection = camRot.GetRightVector() * inp.X + camRot.GetForwardVector() * inp.Y;
+	OutDirection = (camRot.GetRightVector() * inp.X + camRot.GetForwardVector() * inp.Y).GetSafeNormal() * lenght;
 	if (!n.Normalize())
 		return true;
 	const FVector fwd = FVector::VectorPlaneProject(camRot.GetForwardVector(), n).GetSafeNormal();
 	const FVector rht = FVector::VectorPlaneProject(camRot.GetRightVector(), n).GetSafeNormal();
-	OutDirection = fwd * inp.Y + rht * inp.X;
+	OutDirection = (fwd * inp.Y + rht * inp.X).GetSafeNormal() * lenght;
 	return true;
 }
 
@@ -277,10 +277,11 @@ bool UPulseSystemLibrary::EnableActor(AActor* Actor, bool Enable)
 				{
 					PrimComp->SetSimulatePhysics(false);
 					PrimComp->ComponentTags.Add("PulseCompSimulatePhysic");
-				}else if (Enable && simPhysicTag)
+				}
+				else if (Enable && simPhysicTag)
 				{
 					PrimComp->SetSimulatePhysics(true);
-					PrimComp->ComponentTags.Remove("PulseCompSimulatePhysic");					
+					PrimComp->ComponentTags.Remove("PulseCompSimulatePhysic");
 				}
 				PrimComp->SetPhysicsLinearVelocity(FVector::ZeroVector, false);
 				PrimComp->SetPhysicsAngularVelocityInDegrees(FVector::ZeroVector, false);

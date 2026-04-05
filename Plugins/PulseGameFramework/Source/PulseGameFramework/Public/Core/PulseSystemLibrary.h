@@ -26,7 +26,7 @@ class PULSEGAMEFRAMEWORK_API UPulseSystemLibrary : public UBlueprintFunctionLibr
 
 public:
 	// Get the vector CameraForward * Input.Y + CameraRight * Input.X. Snap to angle must not exceed 90 and normal must not be aligned with neither camera right nor forward vectors.
-	UFUNCTION(BlueprintPure, Category="PulseCore|Tools|Camera", meta=(WorldContext = "WorldContext", DisplayName="CameraRelativeInput", AdvancedDisplay = 3))
+	UFUNCTION(BlueprintPure, Category = "PulseCore|Tools|Camera", meta = (WorldContext = "WorldContext", DisplayName = "CameraRelativeInput", AdvancedDisplay = 3, AutoCreateRefTerm = "Normal"))
 	static bool TryGetCameraRelativeInput(const UObject* WorldContext, const FVector2D& Input, FVector& OutDirection, const int32 PlayerIndex = 0,
 	                                      const FVector& Normal = FVector(0), const float SnapToAngle = 0);
 

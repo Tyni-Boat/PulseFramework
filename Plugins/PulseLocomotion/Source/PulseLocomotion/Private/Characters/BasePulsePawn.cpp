@@ -14,6 +14,22 @@ ABasePulsePawn::ABasePulsePawn()
 {
 	// Set this pawn to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
+	// Mesh = CreateOptionalDefaultSubobject<USkeletalMeshComponent>(ACharacter::MeshComponentName);
+	// if (Mesh)
+	// {
+	// 	Mesh->AlwaysLoadOnClient = true;
+	// 	Mesh->AlwaysLoadOnServer = true;
+	// 	Mesh->bOwnerNoSee = false;
+	// 	Mesh->VisibilityBasedAnimTickOption = EVisibilityBasedAnimTickOption::AlwaysTickPose;
+	// 	Mesh->bCastDynamicShadow = true;
+	// 	Mesh->bAffectDynamicIndirectLighting = true;
+	// 	Mesh->PrimaryComponentTick.TickGroup = TG_PrePhysics;
+	// 	Mesh->SetupAttachment(CapsuleComponent);
+	// 	static FName MeshCollisionProfileName(TEXT("CharacterMesh"));
+	// 	Mesh->SetCollisionProfileName(MeshCollisionProfileName);
+	// 	Mesh->SetGenerateOverlapEvents(false);
+	// 	Mesh->SetCanEverAffectNavigation(false);
+	// }
 }
 
 #pragma region Balance
@@ -44,6 +60,19 @@ EPulseLocomotionBalanceState ABasePulsePawn::GetTargetBalanceState() const
 	return EPulseLocomotionBalanceState::Balanced;
 }
 
+float ABasePulsePawn::GetBalanceRatio() const
+{
+	const float dot = GetActorUpVector() | CurrentBalance.GetSafeNormal();
+	const float angle = FMath::Acos(dot);
+	if (angle <= 0)
+		return 1;
+	if (angle >= FMath::DegreesToRadians(BalanceLimit))
+		return 0;
+	if (angle >= FMath::DegreesToRadians(CriticalBalance))
+		return 0;
+	return FMath::GetMappedRangeValueClamped(TRange<float>(0.0f, FMath::DegreesToRadians(CriticalBalance)), TRange<float>(1.0f, 0.0f), angle);
+}
+
 FVector ABasePulsePawn::GetBalanceRecoveryVelocity(const float PawnHalfHeight) const
 {
 	float recoverySpeed = 0;
@@ -62,25 +91,29 @@ void ABasePulsePawn::SetTargetBalance(const FVector& WorldDirection, const float
 {
 	if (!bUseBalanceSystem)
 		return;
-	const float dot = GetActorUpVector() | TargetBalance.GetSafeNormal();
+	FVector upVector = GetActorUpVector();
+	const float dot = upVector | TargetBalance.GetSafeNormal();
 	float angle = FMath::Acos(dot);
-	const FVector xDisplacement = FVector::VectorPlaneProject(WorldDirection, GetActorUpVector()).GetSafeNormal() * FMath::Sin(FMath::DegreesToRadians(AngleDegree));
-	FVector yDisplacement = GetActorUpVector() * FMath::Cos(FMath::Asin(xDisplacement.Length()));
+	const FQuat targetBalanceRot = UKismetMathLibrary::MakeRotFromX(TargetBalance).Quaternion();
+	FVector dir = WorldDirection.GetSafeNormal();
+	FVector rotAxis = FVector(0);
+	FVector::CreateOrthonormalBasis(upVector, rotAxis, dir);
+	FQuat finalBalanceRot = FQuat(rotAxis, FMath::DegreesToRadians(AngleDegree));
 	switch (Operation)
 	{
 	case ENumericOperator::Set:
-		TargetBalance = xDisplacement + yDisplacement;
+		TargetBalance = finalBalanceRot.GetUpVector();
 		break;
 	case ENumericOperator::Add:
-		TargetBalance += (xDisplacement + yDisplacement);
+		TargetBalance = (targetBalanceRot * finalBalanceRot).GetUpVector();
 		break;
 	case ENumericOperator::Sub:
-		TargetBalance -= (xDisplacement + yDisplacement);
+		TargetBalance = (targetBalanceRot * finalBalanceRot.Inverse()).GetUpVector();
 		break;
 	case ENumericOperator::Mul:
 		{
 			angle *= FMath::DegreesToRadians(AngleDegree);
-			FVector xComp = FVector::VectorPlaneProject(CurrentBalance, GetActorUpVector()).GetSafeNormal() * FMath::Sin(angle);
+			FVector xComp = FVector::VectorPlaneProject(TargetBalance, GetActorUpVector()).GetSafeNormal() * FMath::Sin(angle);
 			const FVector YComp = GetActorUpVector() * FMath::Cos(angle);
 			TargetBalance = xComp + YComp;
 		}
@@ -89,7 +122,7 @@ void ABasePulsePawn::SetTargetBalance(const FVector& WorldDirection, const float
 		{
 			if (AngleDegree > 0)
 				angle /= FMath::DegreesToRadians(AngleDegree);
-			FVector xComp = FVector::VectorPlaneProject(CurrentBalance, GetActorUpVector()).GetSafeNormal() * FMath::Sin(angle);
+			FVector xComp = FVector::VectorPlaneProject(TargetBalance, GetActorUpVector()).GetSafeNormal() * FMath::Sin(angle);
 			const FVector YComp = GetActorUpVector() * FMath::Cos(angle);
 			TargetBalance = xComp + YComp;
 		}
@@ -97,7 +130,7 @@ void ABasePulsePawn::SetTargetBalance(const FVector& WorldDirection, const float
 	case ENumericOperator::Mod:
 		{
 			angle = FMath::Modulo(angle, FMath::DegreesToRadians(AngleDegree));
-			FVector xComp = FVector::VectorPlaneProject(CurrentBalance, GetActorUpVector()).GetSafeNormal() * FMath::Sin(angle);
+			FVector xComp = FVector::VectorPlaneProject(TargetBalance, GetActorUpVector()).GetSafeNormal() * FMath::Sin(angle);
 			const FVector YComp = GetActorUpVector() * FMath::Cos(angle);
 			TargetBalance = xComp + YComp;
 		}
@@ -110,22 +143,15 @@ void ABasePulsePawn::SetTargetBalance(const FVector& WorldDirection, const float
 }
 
 void ABasePulsePawn::DrawDebugBalance(const FVector& RelativeLocation, const float ArrowLenght, const float ArrowSize, const float Thickness, FLinearColor PerfectColor,
-	FLinearColor NormaColor, FLinearColor CriticalColor, FLinearColor UnbalanceColor)
+                                      FLinearColor NormaColor, FLinearColor CriticalColor, FLinearColor UnbalanceColor)
 {
 	FVector drawPt = GetActorLocation() + RelativeLocation;
 	FVector dir = GetActorUpVector();
-	FVector pointPt = drawPt + dir * ArrowSize;
-	// circles draw
-	float l = ArrowLenght - ArrowLenght * FMath::Cos(FMath::Asin(5/ArrowLenght));
-	UPulseDebugLibrary::DrawDebugCircle(this, pointPt - dir * l, 5, dir, PerfectColor, 0, Thickness);
-	l = ArrowLenght - ArrowLenght * FMath::Cos(FMath::Asin(CriticalBalance/ArrowLenght));
-	UPulseDebugLibrary::DrawDebugCircle(this, pointPt - dir * l, CriticalBalance, dir, CriticalColor, 0, Thickness);
-	l = ArrowLenght - ArrowLenght * FMath::Cos(FMath::Asin(BalanceLimit/ArrowLenght));
-	UPulseDebugLibrary::DrawDebugCircle(this, pointPt - dir * l, BalanceLimit, dir, UnbalanceColor, 0, Thickness);
 	// Arrow draw
 	const float limit = BalanceLimit;
 	const float crit = CriticalBalance;
-	const auto GetColor = [PerfectColor, NormaColor, CriticalColor, UnbalanceColor, dir, crit, limit](const FVector& arrow) -> FLinearColor
+	const float ratio = GetBalanceRatio();
+	const auto GetColor = [PerfectColor, NormaColor, CriticalColor, UnbalanceColor, dir, crit, limit, ratio](const FVector& arrow, bool lerp = false) -> FLinearColor
 	{
 		const float dot = dir | arrow.GetSafeNormal();
 		const float angle = FMath::Acos(dot);
@@ -135,10 +161,12 @@ void ABasePulsePawn::DrawDebugBalance(const FVector& RelativeLocation, const flo
 			return UnbalanceColor;
 		if (angle >= FMath::DegreesToRadians(crit))
 			return CriticalColor;
-		return NormaColor;
+		return lerp ? FLinearColor::LerpUsingHSV(CriticalColor, NormaColor, ratio) : NormaColor;
 	};
-	UKismetSystemLibrary::DrawDebugArrow(this, drawPt, drawPt + TargetBalance * ArrowLenght * 0.85, ArrowSize, GetColor(TargetBalance), 0, Thickness + 1);
-	UKismetSystemLibrary::DrawDebugArrow(this, drawPt, drawPt + CurrentBalance * ArrowLenght, ArrowSize, GetColor(CurrentBalance), 0, Thickness);
+	UPulseDebugLibrary::DrawDebugArcCircle(this, drawPt, ArrowLenght, FMath::RadiansToDegrees(FMath::Acos(CurrentBalance | dir)), FVector::VectorPlaneProject(CurrentBalance, dir),
+	                                       dir, GetColor(CurrentBalance, true), 0, Thickness, 0, 50, 36);
+	UKismetSystemLibrary::DrawDebugArrow(this, drawPt, drawPt + TargetBalance * ArrowLenght, ArrowSize, GetColor(TargetBalance), 0, Thickness);
+	UKismetSystemLibrary::DrawDebugLine(this, drawPt, drawPt + CurrentBalance * ArrowLenght, GetColor(CurrentBalance, true), 0, Thickness * 0.5);
 }
 
 void ABasePulsePawn::BalanceLogicTick(const float DeltaTime)
@@ -156,7 +184,7 @@ void ABasePulsePawn::BalanceLogicTick(const float DeltaTime)
 	const float angle = FMath::Acos(dot);
 	if (angle >= FMath::DegreesToRadians(CriticalBalance))
 		usedRecovery = CriticalBalanceRecovery;
-	else if (angle > 0)
+	else if (angle >= 0)
 		usedRecovery = NormalBalanceRecovery;
 	// Auto balance recovery
 	if (usedRecovery.Z > 0)
@@ -164,7 +192,7 @@ void ABasePulsePawn::BalanceLogicTick(const float DeltaTime)
 		FQuat targetBalanceRot = UKismetMathLibrary::MakeRotFromX(TargetBalance).Quaternion();
 		FQuat currentBalanceRot = UKismetMathLibrary::MakeRotFromX(CurrentBalance).Quaternion();
 		const FQuat newRot = UKismetMathLibrary::QuaternionSpringInterp(currentBalanceRot, targetBalanceRot, _balanceSpringState, usedRecovery.X, usedRecovery.Y
-			, usedRecovery.Z * DeltaTime, 1, 0, false);
+		                                                                , usedRecovery.Z * DeltaTime, 1, 0, false);
 		CurrentBalance = newRot.GetForwardVector();
 		if (!CurrentBalance.Normalize())
 			CurrentBalance = GetActorUpVector();
@@ -180,6 +208,23 @@ void ABasePulsePawn::BalanceLogicTick(const float DeltaTime)
 
 #pragma endregion
 
+#pragma region Limb
+
+void ABasePulsePawn::DebugLimbs(const float DeltaTime)
+{
+	if (!DebugSKM)
+		return;
+	for (const FPulseLimbDefinition& Limb : Limbs)
+	{
+		for (const auto& BoneSegment : Limb.LimbBoneChain)
+		{
+			BoneSegment.DebugDrawBoneSegment(DebugSKM, FLinearColor(1,0,1,1), 1);
+		}
+	}
+}
+
+#pragma endregion
+
 // Called when the game starts or when spawned
 void ABasePulsePawn::BeginPlay()
 {
@@ -190,10 +235,52 @@ void ABasePulsePawn::BeginPlay()
 void ABasePulsePawn::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
+	BalanceLogicTick(DeltaTime);
+	DebugLimbs(DeltaTime);
 }
 
 // Called to bind functionality to input
 void ABasePulsePawn::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 {
 	Super::SetupPlayerInputComponent(PlayerInputComponent);
+}
+
+void ABasePulsePawn::ProduceInput_Implementation(int32 SimTimeMs, FMoverInputCmdContext& InputCmdResult)
+{
+	IMoverInputProducerInterface::ProduceInput_Implementation(SimTimeMs, InputCmdResult);
+	FCharacterDefaultInputs& CharacterInputs = InputCmdResult.InputCollection.FindOrAddMutableDataByType<FCharacterDefaultInputs>();
+
+	if (GetController() == nullptr)
+	{
+		if (GetLocalRole() == ENetRole::ROLE_Authority && GetRemoteRole() == ENetRole::ROLE_SimulatedProxy)
+		{
+			static const FCharacterDefaultInputs DoNothingInput;
+			// If we get here, that means this pawn is not currently possessed and we're choosing to provide default do-nothing input
+			CharacterInputs = DoNothingInput;
+		}
+
+		// We don't have a local controller so we can't run the code below. This is ok. Simulated proxies will just use previous input when extrapolating
+		return;
+	}
+
+	CharacterInputs.ControlRotation = FRotator::ZeroRotator;
+
+	CharacterInputs.SetMoveInput(EMoveInputType::Velocity, LocomotionInputVector);
+
+	static float RotationMagMin(1e-3);
+
+	const bool bHasAffirmativeMoveInput = (CharacterInputs.GetMoveInput().Size() >= RotationMagMin);
+
+	// Figure out intended orientation
+	CharacterInputs.OrientationIntent = FVector::ZeroVector;
+
+
+	// set the intent to the actors movement direction
+	//CharacterInputs.OrientationIntent = CharacterInputs.GetMoveInput().GetSafeNormal();
+
+	CharacterInputs.bIsJumpPressed = false;
+	CharacterInputs.bIsJumpJustPressed = false;
+
+	// Convert inputs to be relative to the current movement base (depending on options and state)
+	CharacterInputs.bUsingMovementBase = false;
 }

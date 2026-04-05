@@ -26,6 +26,7 @@ public class PulseLocomotion : ModuleRules
 			new string[]
 			{
 				"Core",
+				"PhysicsCore",
 				"Mover",
 				"ChaosMover",
 				"GameplayAbilities",
