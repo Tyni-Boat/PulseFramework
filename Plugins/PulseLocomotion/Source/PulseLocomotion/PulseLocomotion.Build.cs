@@ -27,6 +27,8 @@ public class PulseLocomotion : ModuleRules
 			{
 				"Core",
 				"PhysicsCore",
+				"RigVM",
+				"ControlRig",
 				"Mover",
 				"ChaosMover",
 				"GameplayAbilities",

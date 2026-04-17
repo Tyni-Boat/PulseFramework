@@ -3,8 +3,24 @@
 
 #include "Core/PulseDebugLibrary.h"
 
+#include "CompGeom/ConvexHull3.h"
 #include "Kismet/KismetMathLibrary.h"
 #include "Kismet/KismetSystemLibrary.h"
+
+#include "Engine/World.h"
+#include "Engine/Engine.h"
+#include "CollisionQueryParams.h"
+#include "DrawDebugHelpers.h"
+
+// Chaos includes
+#include "Chaos/ImplicitObject.h"
+#include "Chaos/Plane.h"
+#include "Chaos/Box.h"
+
+// Physics interface includes
+#include "TriangleTypes.h"
+#include "Core/PulseMathLibrary.h"
+#include "PhysicsEngine/BodyInstance.h"
 
 
 void UPulseDebugLibrary::DrawDebugTransform(const UObject* WorldContext, const FTransform Transform, FLinearColor Color, float Duration, float Size)
@@ -26,52 +42,13 @@ void UPulseDebugLibrary::DrawDebugCircle(const UObject* WorldContext, const FVec
 }
 
 void UPulseDebugLibrary::DrawDebugArcCircle(const UObject* WorldContext, const FVector Location, float Radius, float DegreeAngle, FVector Axis, FVector HeadingVector,
-	FLinearColor Color, float Duration, float Size, float StartArrowSize, float EndArrowSize, int32 SegmentFor360, bool bUseCentralHeading)
+                                            FLinearColor Color, float Duration, float Size, float StartArrowSize, float EndArrowSize, int32 SegmentFor360, bool bUseCentralHeading)
 {
 	if (!WorldContext)
 		return;
-	if (DegreeAngle == 0)
-		return;
-	if (HeadingVector.Length() <= 0)
-		return;
-	if (Axis.Length() <= 0)
-		return;
-	// Gathering parameters
-	const int32 segmentFor360 = FMath::Abs(SegmentFor360);
-	float degAngle = DegreeAngle > 0 ? FMath::Min(DegreeAngle, 360) : FMath::Min(DegreeAngle, -360);
-	const float radAngle = FMath::DegreesToRadians(degAngle);
-	const float perSegmentAngle = 360.0f / static_cast<float>(segmentFor360);
-	const float perSegmentRad = FMath::DegreesToRadians(perSegmentAngle);
-	const int32 segmentCount = FMath::CeilToInt(static_cast<float>(segmentFor360) * (FMath::Abs(degAngle) / 360.0f)) + 1;
-	FVector newAxis = Axis.GetSafeNormal();
-	FQuat newRotation = UKismetMathLibrary::MakeRotFromXY(HeadingVector, newAxis).Quaternion();
-	if (bUseCentralHeading)
-	{
-		FQuat offset = FQuat(-newRotation.GetAxisX(), radAngle * 0.5f);
-		newRotation = newRotation * offset;
-	}
-	const FVector u = newRotation.GetAxisX();
-	const FVector v = newRotation.GetAxisY();
-	// Placing points
 	TArray<FVector> points = {};
-	float cumulatedAngle = 0;
-	for (int i = 0; i < segmentCount; i++)
-	{
-		FVector point = (u * FMath::Cos(perSegmentRad * i) + v * FMath::Sin(perSegmentRad * i)) * Radius;
-		points.Add(point);
-		cumulatedAngle += perSegmentAngle;
-		if (cumulatedAngle >= FMath::Abs(degAngle))
-		{
-			point = (u * FMath::Cos(radAngle) + v * FMath::Sin(radAngle)) * Radius;
-			points[points.Num() - 1] = point;
-			break;
-		}
-	}
-	// Transformation
-	for (int i = 0; i < points.Num(); ++i)
-	{
-		points[i] += Location;
-	}
+	if (!UPulseMathLibrary::CircleArcPoints(Location, Radius, DegreeAngle, Axis, HeadingVector, points, SegmentFor360 / 2, bUseCentralHeading))
+		return;
 	//Draw
 	for (int i = 1; i < points.Num(); ++i)
 	{
@@ -87,6 +64,18 @@ void UPulseDebugLibrary::DrawDebugArcCircle(const UObject* WorldContext, const F
 			continue;
 		}
 		UKismetSystemLibrary::DrawDebugLine(WorldContext, lastPoint, points[i], Color, Duration, Size);
+	}
+}
+
+void UPulseDebugLibrary::DrawDebugPath(const UObject* WorldContext, const TArray<FVector>& Path, FLinearColor Color, float Duration, float Size)
+{
+	if (!WorldContext)
+		return;
+	//Draw
+	for (int i = 1; i < Path.Num(); ++i)
+	{
+		FVector lastPoint = Path[i - 1];
+		UKismetSystemLibrary::DrawDebugLine(WorldContext, lastPoint, Path[i], Color, Duration, Size);
 	}
 }
 
@@ -131,6 +120,36 @@ void UPulseDebugLibrary::DrawDebugPrimitiveShape(const UObject* WorldContext, ui
 		UKismetSystemLibrary::DrawDebugSphere(WorldContext, Location, FMath::Max(Extents.X, Extents.Y), 12, Color, Duration, Size);
 		break;
 	}
+}
+
+void UPulseDebugLibrary::DrawDebugConvexHull(const UObject* WorldContext, const TArray<FVector>& Points, const FTransform& Transform, const FLinearColor& Color, float Duration,
+                                             float Size)
+{
+	UWorld* World = GEngine->GetWorldFromContextObject(WorldContext, EGetWorldErrorMode::LogAndReturnNull);
+	if (!World || Points.Num() < 3)
+	{
+		return;
+	}
+
+	// Use TConvexHull3 to compute hull for drawing
+	using RealType = double;
+	UE::Geometry::TConvexHull3<RealType> HullSolver;
+	if (!HullSolver.Solve(Points.Num(), [&Points](int32 Idx) { return Points[Idx]; }, [](int32 Idx) { return true; }))
+	{
+		return;
+	}
+
+	// Draw each triangle of the hull
+	HullSolver.GetTriangles([&](const UE::Geometry::FIndex3i& Triangle)
+	{
+		FVector V0 = Transform.TransformPosition(FVector(Points[Triangle.A]));
+		FVector V1 = Transform.TransformPosition(FVector(Points[Triangle.B]));
+		FVector V2 = Transform.TransformPosition(FVector(Points[Triangle.C]));
+
+		UKismetSystemLibrary::DrawDebugLine(World, V0, V1, Color, Duration, Size);
+		UKismetSystemLibrary::DrawDebugLine(World, V1, V2, Color, Duration, Size);
+		UKismetSystemLibrary::DrawDebugLine(World, V2, V0, Color, Duration, Size);
+	});
 }
 
 FString UPulseDebugLibrary::DebugNetLog(const UObject* Obj, const FString& message)

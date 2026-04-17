@@ -11,6 +11,7 @@ DEFINE_LOG_CATEGORY(LogPulseObjectPooling);
 DEFINE_LOG_CATEGORY(LogPulseSave);
 DEFINE_LOG_CATEGORY(LogPulseTweening);
 DEFINE_LOG_CATEGORY(LogPulseUserProfile);
+DEFINE_LOG_CATEGORY(LogPulsePhysics);
 
 void FPulseGameFrameworkModule::StartupModule()
 {

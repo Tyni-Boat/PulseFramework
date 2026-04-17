@@ -3,13 +3,13 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "BasePulsePawn.h"
+#include "BaseMoverPulsePawn.h"
 #include "MoverComponent.h"
 #include "PulseMoverPawn.generated.h"
 
 
 UCLASS(BlueprintType, Blueprintable)
-class PULSELOCOMOTION_API APulseMoverPawn : public ABasePulsePawn
+class PULSELOCOMOTION_API APulseMoverPawn : public ABaseMoverPulsePawn
 {
 	GENERATED_BODY()
 

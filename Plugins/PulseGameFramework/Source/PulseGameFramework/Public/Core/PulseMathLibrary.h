@@ -13,8 +13,8 @@ UCLASS()
 class PULSEGAMEFRAMEWORK_API UPulseMathLibrary : public UBlueprintFunctionLibrary
 {
 	GENERATED_BODY()
-public:
 
+public:
 	// Transform an input alpha [0-1] into a [0-1] output evaluated from a curve type.
 	UFUNCTION(BlueprintPure, Category="PulseCore|Math", meta=(DisplayName="CurveAlpha", AdvancedDisplay = 1))
 	static float AlphaByCurve(const float InAlpha, EAlphaBlendOption CurveType = EAlphaBlendOption::Linear, UCurveFloat* FloatCurve = nullptr);
@@ -38,4 +38,20 @@ public:
 	// Get the lenght of a circle arc
 	UFUNCTION(BlueprintPure, Category="PulseCore|Math", meta=(DisplayName="ArcLenght", AdvancedDisplay = 1))
 	static float CircleArcLenght(const float Radius, const float radAngle);
+
+	/**
+	 * @brief Return a list of points on a circle arc
+	 * @param Location - The circle center world offset
+	 * @param Radius - Radius of the circle
+	 * @param DegreeAngle - The arc angle in degrees
+	 * @param Axis - The vector orthogonal to the circle. may be changed to be orthogonal to the heading vector
+	 * @param HeadingVector - The vector representing the angle zero
+	 * @param OutPoints - World space point on the arc. The array is not reset.
+	 * @param PiRadSegmentCount - How many segments shall have been used if the arc is a half circle
+	 * @param bUseCentralHeading - The heading vector will no longer point to zero but RadAngle / 2
+	 * @return true if the circle got at least on point added 
+	 */
+	UFUNCTION(BlueprintPure, Category="PulseCore|Math", meta=(DisplayName="ArcPoints", AdvancedDisplay = 1, AutoCreateRefTerm = "Location,Axis,HeadingVector"))
+	static bool CircleArcPoints(const FVector& Location, float Radius, float DegreeAngle, const FVector& Axis, const FVector& HeadingVector, TArray<FVector>& OutPoints,
+	                            int32 PiRadSegmentCount = 18, bool bUseCentralHeading = false);
 };

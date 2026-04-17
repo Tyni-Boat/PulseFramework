@@ -361,13 +361,13 @@ public:
 	
 #pragma endregion
 
-#pragma region Inventory Manager
+#pragma region Pulse Actors Config
 
-	UPROPERTY(EditAnywhere, Config, Category = "Pulse Inventory")
-	bool bReplicateInventory = false;
+	UPROPERTY(EditAnywhere, Config, Category = "Actor Config")
+	TSoftObjectPtr<USkeletalMesh> DefaultPulsePawnBodyMesh = nullptr;
 	
-	UPROPERTY(EditAnywhere, Config, Category = "Pulse Inventory")
-	bool bSaveInventory = false;
+	UPROPERTY(EditAnywhere, Config, Category = "Actor Config")
+	TSubclassOf<UAnimInstance> DefaultPulsePawnBodyAnimInstance = nullptr;
 	
 #pragma endregion
 };

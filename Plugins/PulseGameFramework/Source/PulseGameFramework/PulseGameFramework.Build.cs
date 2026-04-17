@@ -7,21 +7,23 @@ public class PulseGameFramework : ModuleRules
 	public PulseGameFramework(ReadOnlyTargetRules Target) : base(Target)
 	{
 		PCHUsage = ModuleRules.PCHUsageMode.UseExplicitOrSharedPCHs;
-		
+
 		PublicIncludePaths.AddRange(
-			new string[] {
+			new string[]
+			{
 				// ... add public include paths required here ...
 			}
-			);
-				
-		
+		);
+
+
 		PrivateIncludePaths.AddRange(
-			new string[] {
+			new string[]
+			{
 				// ... add other private include paths required here ...
 			}
-			);
-			
-		
+		);
+
+
 		PublicDependencyModuleNames.AddRange(
 			new string[]
 			{
@@ -34,35 +36,37 @@ public class PulseGameFramework : ModuleRules
 				"GameFeatures",
 				"PakFile",
 				"HTTP",
-				// Required for JSON serialization and parsing
-				"Json",
-				"JsonUtilities",
+				"PhysicsCore",
+				"Chaos", // For Chaos::FConvex and geometry queries
 				// ... add other public dependencies that you statically link with here ...
 			}
-			);
-			
-		
+		);
+
+
 		PrivateDependencyModuleNames.AddRange(
 			new string[]
 			{
-				"Chaos", 
 				"Slate",
 				"NetCore",
-				"PhysicsCore",
 				"SlateCore",
 				"UMG",
 				"ApplicationCore",
 				"InputCore",
+				"Json", // Required for JSON serialization and parsing
+				"JsonUtilities", // Required for JSON serialization and parsing
+				"GeometryCore", // For TConvexHull3
+				"GeometryCollectionEngine", // UGeometryCollection, UGeometryCollectionComponent
+				"ChaosCore",
 				// ... add private dependencies that you statically link with here ...	
 			}
-			);
-		
-		
+		);
+
+
 		DynamicallyLoadedModuleNames.AddRange(
 			new string[]
 			{
 				// ... add any modules that your module loads dynamically here ...
 			}
-			);
+		);
 	}
 }

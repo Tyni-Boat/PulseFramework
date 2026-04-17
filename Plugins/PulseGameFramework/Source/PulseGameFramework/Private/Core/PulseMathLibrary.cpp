@@ -53,3 +53,53 @@ float UPulseMathLibrary::CircleArcLenght(const float Radius, const float radAngl
 {
 	return Radius * radAngle;
 }
+
+bool UPulseMathLibrary::CircleArcPoints(const FVector& Location, float Radius, float DegreeAngle, const FVector& Axis, const FVector& HeadingVector, TArray<FVector>& OutPoints,
+	int32 PiRadSegmentCount, bool bUseCentralHeading)
+{
+	if (DegreeAngle == 0)
+		return false;
+	if (HeadingVector.Length() <= 0)
+		return false;
+	if (Axis.Length() <= 0)
+		return false;
+	// Gathering parameters
+	const int32 segmentFor360 = FMath::Abs(PiRadSegmentCount * 2);
+	float degAngle = DegreeAngle > 0 ? FMath::Min(DegreeAngle, 360) : FMath::Min(DegreeAngle, -360);
+	const float radAngle = FMath::DegreesToRadians(degAngle);
+	const float perSegmentAngle = 360.0f / static_cast<float>(segmentFor360);
+	const float perSegmentRad = FMath::DegreesToRadians(perSegmentAngle);
+	const int32 segmentCount = FMath::CeilToInt(static_cast<float>(segmentFor360) * (FMath::Abs(degAngle) / 360.0f)) + 1;
+	FVector newAxis = Axis.GetSafeNormal();
+	FQuat newRotation = UKismetMathLibrary::MakeRotFromXZ(HeadingVector, newAxis).Quaternion();
+	if (bUseCentralHeading)
+	{
+		FQuat offset = FQuat(-newRotation.GetAxisZ(), radAngle * 0.5f);
+		newRotation = newRotation * offset;
+	}
+	const FVector u = newRotation.GetAxisX();
+	const FVector v = newRotation.GetAxisY();
+	// Placing points
+	TArray<FVector> points = {};
+	float cumulatedAngle = 0;
+	for (int i = 0; i < segmentCount; i++)
+	{
+		FVector point = (u * FMath::Cos(perSegmentRad * i) + v * FMath::Sin(perSegmentRad * i)) * Radius;
+		points.Add(point);
+		cumulatedAngle += perSegmentAngle;
+		if (cumulatedAngle >= FMath::Abs(degAngle))
+		{
+			point = (u * FMath::Cos(radAngle) + v * FMath::Sin(radAngle)) * Radius;
+			points[points.Num() - 1] = point;
+			break;
+		}
+	}
+	// Transformation
+	for (int i = 0; i < points.Num(); ++i)
+	{
+		points[i] += Location;
+		OutPoints.Add(points[i]);
+	}
+
+	return points.Num() > 0;
+}

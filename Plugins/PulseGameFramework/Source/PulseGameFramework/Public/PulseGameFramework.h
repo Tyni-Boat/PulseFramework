@@ -11,6 +11,7 @@ DECLARE_LOG_CATEGORY_EXTERN(LogPulseObjectPooling, Log, All);
 DECLARE_LOG_CATEGORY_EXTERN(LogPulseSave, Log, All);
 DECLARE_LOG_CATEGORY_EXTERN(LogPulseTweening, Log, All);
 DECLARE_LOG_CATEGORY_EXTERN(LogPulseUserProfile, Log, All);
+DECLARE_LOG_CATEGORY_EXTERN(LogPulsePhysics, Log, All);
 
 class FPulseGameFrameworkModule : public IModuleInterface
 {
